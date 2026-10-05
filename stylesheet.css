@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+a {
+  color: #fe6a00e9;
+  text-decoration: none;
+  text-shadow: 0px 0px 1px rgb(235, 255, 58);
+}
+
+a.a2 {
+  color: #000000;
+  text-shadow: none;
+}
+
+a:focus,
+a:hover {
+  color: #f09228;
+  text-decoration: none;
+}
+
+body,
+td,
+th,
+tr,
+p,
+a,
+li {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 14px;
+}
+
+body {
+  margin: 8px;
+  background: #ffffff;
+}
+
+strong {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 14px;
+}
+
+heading {
+  display: inline-block;
+  margin-top: 18px;
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 25px;
+  text-decoration: underline;
+  text-decoration-style: solid;
+  -webkit-text-decoration-color: #ad7020;
+  text-decoration-color: #fba524;
+}
+
+papertitle {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+name {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 28px;
+}
+
+.news-list {
+  margin: 1em 0;
+  padding-left: 20px;
+}
+
+.news-list li {
+  margin: 0;
+}
+
+.paper-award {
+  color: #c15f00;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+.paper-highlight {
+  color: #c40000;
+  font-weight: 700;
+}
+
+.paper-img {
+  width: 190px;
+  max-width: 100%;
+}
+
+.logo-row img {
+  vertical-align: middle;
+}
+
+.exp-logo {
+  width: 100px;
+  max-width: 100%;
+}
+
+/* Stack the intro and paper rows on narrow screens */
+@media (max-width: 600px) {
+  .intro td,
+  .paper-row td {
+    display: block;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .intro .photo {
+    padding: 0 15% 10px !important;
+  }
+
+  .paper-row td {
+    padding: 12px 10px !important;
+  }
+
+  .paper-row .paper-img {
+    width: 100%;
+  }
+
+  .logo-row img {
+    width: 90%;
+    max-width: 150px;
+    height: auto !important;
+  }
+}
+
+.awards-list li {
+  margin-bottom: 10px;
+}
+
+.news-toggle {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fe6a00e9;
+  cursor: pointer;
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 14px;
+  text-shadow: 0px 0px 1px rgb(235, 255, 58);
+}
+
+.news-toggle:hover,
+.news-toggle:focus {
+  color: #f09228;
+}
