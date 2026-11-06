@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UniGaussianGPT</title>
+<meta name="description" content="UniGaussianGPT: one autoregressive model that generates 3D Gaussian scenes and labels every Gaussian with its semantic class. Promo video, interactive console and technical details.">
+<meta name="theme-color" content="#07090e">
+<link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  color-scheme: dark;
+  --bg: #07090e;
+  --bg-2: #0c1018;
+  --surface: #111722;
+  --surface-2: #161d2a;
+  --line: #222b3a;
+  --line-soft: #1a2230;
+  --text: #e9edf4;
+  --muted: #9aa5b8;
+  --faint: #6c778b;
+  --accent: #5ad7ee;
+  --accent-ink: #062029;
+  --best: rgba(90, 215, 238, 0.13);
+  --ours: rgba(250, 150, 40, 0.10);
+  --silver: linear-gradient(180deg, #ffffff 0%, #dfe4ee 45%, #9ea8bb 100%);
+  --display: "Montserrat", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --nav-h: 60px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --wrap: min(1120px, 100% - 32px);
+}
+html { background: var(--bg); scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.65 var(--body); -webkit-font-smoothing: antialiased; }
+img, video, canvas { max-width: 100%; display: block; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+[hidden] { display: none !important; }
+.wrap { width: var(--wrap); margin-inline: auto; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- nav */
+.site-nav { position: fixed; inset: 0 0 auto 0; z-index: 50; height: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); padding: env(safe-area-inset-top, 0px) max(16px, calc((100% - 1240px) / 2)) 0;
+  display: flex; align-items: center; gap: 24px; background: rgba(7, 9, 14, 0.72); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid var(--line-soft); }
+.wordmark { font: 700 17px/1 var(--display); letter-spacing: 0.01em; text-decoration: none; background: var(--silver); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; }
+.site-nav-links { display: flex; gap: 4px; margin-inline: auto; }
+.site-nav-links a { font: 500 14px/1 var(--body); color: var(--muted); text-decoration: none; padding: 9px 12px; border-radius: 8px; white-space: nowrap; transition: color .2s, background .2s; }
+.site-nav-links a:hover { color: var(--text); background: var(--surface); }
+.site-nav-links a[aria-current="page"] { color: var(--text); background: var(--surface-2); }
+.site-nav-side { display: flex; align-items: center; gap: 10px; font: 500 14px/1 var(--body); color: var(--faint); }
+.site-nav-side a { color: var(--muted); text-decoration: none; }
+.site-nav-side a:hover { color: var(--text); }
+.site-nav-side .soon { color: var(--faint); }
+@media (max-width: 860px) {
+  .site-nav { flex-wrap: wrap; height: auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) 8px; row-gap: 6px; }
+  .site-nav-links { order: 3; width: 100%; margin: 0; overflow-x: auto; }
+  .site-nav-side { margin-left: auto; }
+}
+main.page-view { padding-top: var(--nav-h); min-height: 100vh; }
+@media (max-width: 860px) { main.page-view { padding-top: 104px; } }
+
+/* ---------- masthead */
+.masthead { position: relative; overflow: hidden; margin-top: calc(-1 * var(--nav-h)); padding: calc(var(--nav-h) + 96px) 16px 88px; isolation: isolate; }
+.masthead-media { position: absolute; inset: 0; z-index: -1; }
+.masthead-media video, .masthead-media img { width: 100%; height: 100%; object-fit: cover; }
+.masthead-shade { position: absolute; inset: 0; background:
+  radial-gradient(120% 90% at 50% 40%, rgba(7, 9, 14, 0.55) 0%, rgba(7, 9, 14, 0.82) 60%, var(--bg) 100%),
+  linear-gradient(180deg, rgba(7, 9, 14, 0.4) 0%, rgba(7, 9, 14, 0) 30%, var(--bg) 100%); }
+.masthead-content { width: min(1120px, 100%); margin-inline: auto; text-align: center; display: grid; gap: 22px; justify-items: center; }
+.hero-title { font: 700 clamp(44px, 8.4vw, 104px)/1 var(--display); letter-spacing: -0.02em; background: var(--silver); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero-sub { font: 500 clamp(13px, 1.6vw, 17px)/1.5 var(--display); letter-spacing: 0.22em; text-transform: uppercase; color: #c8cfdc; max-width: 46ch; }
+.authors { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; font: 500 clamp(15px, 1.6vw, 18px)/1.4 var(--body); color: var(--text); max-width: 1060px; }
+.authors sup, .affiliations sup { font: 500 0.68em/0 var(--mono); color: var(--accent); margin-left: 1px; }
+.affil-mark { display: inline-block; height: 2.1em; width: auto; vertical-align: -0.72em; margin-right: 8px; }
+.affiliations { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 22px; color: var(--muted); font-size: 15px; }
+.author-notes { color: var(--faint); font-size: 13px; margin-top: -10px; }
+.resource-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line); background: rgba(17, 23, 34, 0.7); color: var(--text);
+  font: 500 14px/1 var(--body); text-decoration: none; cursor: pointer; transition: border-color .2s, background .2s, transform .2s var(--ease); }
+.btn:hover { border-color: #3a4558; background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn svg { width: 17px; height: 17px; flex: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover { background: #7fe2f3; }
+.btn[aria-disabled="true"] { color: var(--faint); cursor: default; }
+.btn .tag { font: 500 11px/1 var(--mono); color: var(--faint); letter-spacing: 0.04em; }
+
+/* ---------- home sections */
+.section { padding-block: 72px; }
+.section + .section { border-top: 1px solid var(--line-soft); }
+.section-head { display: grid; gap: 12px; margin-bottom: 32px; max-width: 760px; }
+.section-head h2 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.15; }
+.section-head p { color: var(--muted); font-size: 17px; }
+.figure { margin: 0; display: grid; gap: 12px; }
+.figure .frame { background: #fff; border-radius: 14px; padding: clamp(8px, 1.6vw, 18px); overflow: hidden; }
+.figure .frame.dark { background: var(--surface); padding: 0; }
+.figure .frame.tall img { max-width: 640px; margin-inline: auto; }
+.figure figcaption { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 900px; }
+.figure figcaption b { color: var(--text); font-weight: 600; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.stat { border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 20px; background: var(--bg-2); display: grid; gap: 8px; align-content: start; }
+.stat .v { font: 600 clamp(34px, 4.4vw, 48px)/1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.stat .k { font: 500 12px/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.stat p { color: var(--muted); font-size: 14px; line-height: 1.55; }
+.stat p b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { .stats { grid-template-columns: 1fr; } }
+.split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 36px; align-items: center; }
+@media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+.console-teaser { position: relative; display: block; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--bg-2); }
+.console-teaser img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; transition: transform .6s var(--ease); }
+.console-teaser:hover img { transform: scale(1.02); }
+.console-teaser .chip { position: absolute; left: 16px; bottom: 16px; }
+.ops { list-style: none; padding: 0; margin: 18px 0 26px; display: grid; gap: 10px; }
+.ops li { display: grid; grid-template-columns: 116px 1fr; gap: 12px; color: var(--muted); font-size: 15px; }
+.ops li b { font: 500 13px/1.6 var(--mono); color: var(--text); }
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.94); color: #10141b; font: 600 13px/1 var(--body); }
+.chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot, #fa9628); }
+.bib { position: relative; background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; }
+.bib pre { margin: 0; padding: 22px 24px; overflow-x: auto; font: 400 13.5px/1.7 var(--mono); color: #c9d2e0; }
+.bib .copy { position: absolute; top: 12px; right: 12px; height: 34px; }
+.note { color: var(--faint); font-size: 13px; margin-top: 10px; }
+
+/* ---------- promo */
+.promo-stage { padding-block: 40px 72px; display: grid; gap: 22px; }
+.promo-stage video { width: 100%; border-radius: 16px; background: #000; border: 1px solid var(--line); aspect-ratio: 16 / 9; }
+.chapters { display: flex; flex-wrap: wrap; gap: 8px; }
+.chapters button { font: 500 13px/1 var(--body); color: var(--muted); background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; height: 34px; padding: 0 14px; cursor: pointer; }
+.chapters button:hover { color: var(--text); border-color: #3a4558; }
+.chapters button span { font-family: var(--mono); color: var(--faint); margin-right: 6px; }
+.affil-logos { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 52px; margin-top: 8px; padding-top: 26px; border-top: 1px solid var(--line-soft); }
+.affil-logos figure { margin: 0; display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 15px; }
+.affil-logos img { height: 72px; width: auto; }
+
+/* ---------- console */
+.console-page { padding-block: 28px 56px; display: grid; gap: 18px; }
+.console-strip { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 28px; }
+.console-strip h1 { font-size: clamp(24px, 3vw, 32px); }
+.console-strip p { color: var(--muted); max-width: 64ch; margin-top: 8px; }
+.console { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(120% 120% at 50% 0%, #141b27 0%, #0a0e15 70%); height: min(72vh, 720px); min-height: 420px; touch-action: none; }
+.console canvas { width: 100%; height: 100%; cursor: grab; }
+.console.is-dragging canvas { cursor: grabbing; }
+.console-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 14px; background: rgba(250, 251, 253, 0.96);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); max-width: calc(100% - 24px); overflow-x: auto; }
+.console-bar button { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 13px; border: 0; border-radius: 10px; background: transparent; color: #1a2130;
+  font: 600 14px/1 var(--body); cursor: pointer; }
+.console-bar button:hover:not(:disabled) { background: #edf0f5; }
+.console-bar button:disabled { color: #a3abb8; cursor: default; }
+.console-bar button svg { width: 17px; height: 17px; }
+.console-bar .seg { display: flex; background: #eceff4; border-radius: 10px; padding: 3px; gap: 2px; }
+.console-bar .seg button { height: 32px; }
+.console-bar .seg button[aria-pressed="true"] { background: #4f46e5; color: #fff; }
+.console-bar .sep { width: 1px; background: #dde2ea; margin: 6px 2px; flex: none; }
+.console-legend { position: absolute; top: 14px; left: 14px; list-style: none; margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(250, 251, 253, 0.95); color: #1a2130;
+  display: grid; gap: 5px; font: 500 12px/1.2 var(--body); text-transform: capitalize; }
+.console-legend::before { content: "Semantic classes"; font: 600 10px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: #6b7487; margin-bottom: 3px; }
+.console-legend li { display: flex; align-items: center; gap: 8px; }
+.console-legend i { width: 11px; height: 11px; border-radius: 3px; }
+.console-label { position: absolute; left: 0; top: 0; pointer-events: none; }
+.console-status { position: absolute; top: 14px; right: 14px; max-width: min(360px, 60%); padding: 9px 12px; border-radius: 10px; background: rgba(10, 14, 21, 0.72); color: #d6dce6;
+  font: 500 13px/1.45 var(--body); backdrop-filter: blur(6px); }
+.console-pad { position: absolute; right: 14px; bottom: 76px; display: none; grid-template: ". f ." 44px "l . r" 44px ". b ." 44px / 44px 44px 44px; gap: 4px; }
+.console-pad button { border: 0; border-radius: 10px; background: rgba(250, 251, 253, 0.85); color: #1a2130; display: grid; place-items: center; touch-action: none; }
+.console-pad svg { width: 18px; height: 18px; }
+@media (pointer: coarse) { .console-pad { display: grid; } }
+.console-load { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font: 500 14px/1 var(--mono); }
+.console.is-ready .console-load { display: none; }
+.keys { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 14px; }
+.keys kbd { font: 500 12px/1 var(--mono); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 3px 7px; margin-right: 4px; }
+.console-foot { color: var(--faint); font-size: 13px; max-width: 90ch; }
+
+/* ---------- technical details */
+.tech { padding-block: 40px 88px; }
+.tech-grid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+.toc { position: sticky; top: calc(var(--nav-h) + 28px); align-self: start; display: grid; gap: 2px; font-size: 14px; }
+.toc a { color: var(--faint); text-decoration: none; padding: 6px 10px; border-left: 2px solid var(--line-soft); }
+.toc a:hover { color: var(--text); border-left-color: var(--accent); }
+@media (max-width: 900px) { .tech-grid { grid-template-columns: 1fr; } .toc { display: none; } }
+.tech-hero { display: grid; gap: 14px; margin-bottom: 44px; }
+.tech-hero h1 { font-size: clamp(28px, 3.6vw, 42px); line-height: 1.12; }
+.tech-hero .by { color: var(--muted); font-size: 15px; }
+.tech-section { padding-block: 34px; border-top: 1px solid var(--line-soft); display: grid; gap: 18px; scroll-margin-top: calc(var(--nav-h) + 16px); }
+.tech-section:first-of-type { border-top: 0; padding-top: 0; }
+.tech-section h2 { font-size: clamp(22px, 2.6vw, 28px); }
+.tech-section h3 { font-size: 18px; margin-top: 10px; }
+.prose { display: grid; gap: 14px; max-width: 74ch; color: #cdd4e0; }
+.prose b { color: var(--text); font-weight: 600; }
+.katex { font-size: 1.04em; }
+.eq { overflow-x: auto; padding: 4px 0; color: var(--text); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); }
+table { width: 100%; border-collapse: collapse; font: 400 14px/1.4 var(--body); font-variant-numeric: tabular-nums; }
+th, td { padding: 9px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+th:first-child, td:first-child { text-align: left; }
+thead th { font: 500 12px/1.3 var(--mono); color: var(--muted); letter-spacing: 0.02em; background: var(--surface); }
+thead tr:first-child th { color: var(--text); }
+tbody tr:last-child td { border-bottom: 0; }
+td.best { background: var(--best); color: #fff; font-weight: 600; }
+tr.ours td { background: var(--ours); }
+tr.ours td.best { background: linear-gradient(var(--best), var(--best)), var(--ours); }
+tr.ours td:first-child { color: #ffc27a; font-weight: 600; }
+tr.group td { font: 500 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); text-align: left; padding-top: 14px; background: transparent; }
+td.na { color: var(--faint); }
+.cap { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 90ch; }
+.cap b { color: var(--text); font-weight: 600; }
+.two { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+
+.site-footer { border-top: 1px solid var(--line-soft); padding: 28px 16px 40px; color: var(--faint); font-size: 13px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+</style>
+<script type="importmap">
+{"imports": {"three": "./assets/vendor/three.module.js", "three/addons/": "./assets/vendor/addons/", "spark": "./assets/vendor/spark.module.js"}}
+</script>
+</head>
+<body>
+<header class="site-nav" id="siteNav">
+  <a class="wordmark" href="#home">UniGaussianGPT</a>
+  <nav class="site-nav-links" aria-label="Pages">
+    <a href="#home" data-view="home">Home</a>
+    <a href="#promo-video" data-view="promo-video">Promo Video</a>
+    <a href="#console" data-view="console">Interactive Console</a>
+    <a href="#technical-details" data-view="technical-details">Technical Details</a>
+  </nav>
+  <div class="site-nav-side">
+    <a href="assets/paper/UniGaussianGPT.pdf" target="_blank" rel="noopener">Paper</a>
+    <span aria-hidden="true">/</span>
+    <a href="https://github.com/AresCheah/UniGaussianGPT" target="_blank" rel="noopener">Code</a>
+    <span aria-hidden="true">/</span>
+    <a href="https://huggingface.co/Ares788/UniGaussianGPT" target="_blank" rel="noopener">Model</a>
+  </div>
+</header>
+
+<!-- ================================================================= HOME -->
+<main id="home" class="page-view">
+  <header class="masthead">
+    <div class="masthead-media" aria-hidden="true">
+      <video autoplay muted loop playsinline preload="auto" poster="assets/video/hero_walk.jpg">
+        <source src="assets/video/hero_walk.mp4" type="video/mp4">
+      </video>
+      <div class="masthead-shade"></div>
+    </div>
+    <div class="masthead-content">
+      <h1><span class="hero-title">UniGaussianGPT</span></h1>
+      <p class="hero-sub">Composable Autoregressive Semantic 3D Gaussians Modeling</p>
+      <div class="authors" aria-label="Authors">
+        <span>Yuchen Xie<sup>1,*</sup></span>
+        <span>Weijie Wang<sup>2,*</sup></span>
+        <span>Zihui Gao<sup>1</sup></span>
+        <span>Qihang Cao<sup>1</sup></span>
+        <span>Jinghao Guo<sup>1</sup></span>
+        <span>Donny Y. Chen<sup>3</sup></span>
+        <span>Jia-Wang Bian<sup>1</sup></span>
+      </div>
+      <p class="affiliations"><span><img class="affil-mark" src="assets/brand/ntu.png" alt=""><sup>1</sup>Nanyang Technological University</span><span><img class="affil-mark" src="assets/brand/zju.png" alt=""><sup>2</sup>Zhejiang University</span><span><img class="affil-mark" src="assets/brand/monash.png" alt=""><sup>3</sup>Monash University</span></p>
+      <p class="author-notes"><sup>*</sup>Equal contribution</p>
+      <div class="resource-links">
+        <a class="btn primary" href="assets/paper/UniGaussianGPT.pdf" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>Paper</a>
+        <a class="btn" href="https://github.com/AresCheah/UniGaussianGPT" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 8-4 4 4 4"/><path d="m16 8 4 4-4 4"/><path d="m13.5 5-3 14"/></svg>Code</a>
+        <a class="btn" href="https://huggingface.co/Ares788/UniGaussianGPT" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>Model</a>
+        <a class="btn" href="#promo-video">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.7v14.6a1 1 0 0 0 1.52.85l11.8-7.3a1 1 0 0 0 0-1.7L8.52 3.85A1 1 0 0 0 7 4.7z"/></svg>Promo Video</a>
+        <a class="btn" href="#console">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 7.5l9 4.5 9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg>Interactive Console</a>
+        <a class="btn" href="#technical-details">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>Technical Details</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">One model, two jobs</span>
+        <h2>Generate a 3D Gaussian scene and know what every Gaussian is</h2>
+        <p>UniGaussianGPT writes a scene token by token. The transformer state that predicts the next token also predicts the semantic class of the region it has just written, so the generated Gaussians come out labeled, and each piece of furniture can be selected, moved, copied or removed as a whole.</p>
+      </div>
+      <figure class="figure">
+        <div class="frame"><img src="assets/paper/fig/fig_teaser.webp" alt="Teaser figure from the paper: a generated scene with its semantic labels, and rendered views with the masks of selected objects." loading="lazy"></div>
+        <figcaption><b>Figure 1.</b> UniGaussianGPT generates 3D Gaussian scenes together with their semantic categories. Left: every decoded Gaussian carries a predicted category. Right: RGB renderings of scenes with the predicted semantic masks.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Results on held-out 3D-FRONT scenes</span>
+        <h2>Better labels, better layouts, and hidden surfaces kept</h2>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="k">3D semantic mIoU</span><span class="v">0.578</span><p>On 480 held-out 4&nbsp;m chunks. The strongest baseline, SceneSplat, reaches <b>0.385</b>; all baselines are fine-tuned on our data.</p></div>
+        <div class="stat"><span class="k">Layout FID, unconditional</span><span class="v">68.36</span><p>Top-down depth of generated scenes. WorldGrow <b>97.08</b>, GaussianGPT <b>104.03</b>; lower is better.</p></div>
+        <div class="stat"><span class="k">Hidden Gaussians retained</span><span class="v">92.96%</span><p>Occluded surfaces that survive tokenization with opacity above 0.15, against <b>83.32%</b> for the GaussianGPT tokenizer.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap split">
+      <a class="console-teaser" href="#console" aria-label="Open the interactive console">
+        <img src="assets/console/poster.jpg" alt="The living room from the promo video in the interactive console, seen from inside, as 3D Gaussians." loading="lazy">
+        <span class="chip" style="--dot:#4f46e5"><i></i>Open the console</span>
+      </a>
+      <div>
+        <span class="eyebrow">Interactive console</span>
+        <h2 style="font-size: clamp(24px, 3vw, 34px); margin-top: 12px;">Walk into a generated house and edit it</h2>
+        <ul class="ops">
+          <li><b>Walk</b>Move through the house with W A S D, look around by dragging.</li>
+          <li><b>Semantics</b>Show the class the model predicted for every Gaussian.</li>
+          <li><b>Select</b>Click the sofa, a chair or a table; it is one labeled, complete piece.</li>
+          <li><b>Move, turn</b>Drag it across the floor, turn it in 15&deg; steps.</li>
+          <li><b>Copy, remove</b>Duplicate it, or take it out: the floor under it is whole.</li>
+        </ul>
+        <a class="btn primary" href="#console">Open the console</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="citation">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Citation</span>
+        <h2>BibTeX</h2>
+      </div>
+      <div class="bib">
+        <button class="btn copy" type="button" data-copy="#bibtex">Copy</button>
+<pre id="bibtex">@article{xie2026unigaussiangpt,
+  title   = {UniGaussianGPT: Composable Autoregressive Semantic 3D Gaussians Modeling},
+  author  = {Xie, Yuchen and Wang, Weijie and Gao, Zihui and Cao, Qihang and
+             Guo, Jinghao and Chen, Donny Y. and Bian, Jia-Wang},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ================================================================= PROMO -->
+<main id="promo-video" class="page-view" hidden>
+  <div class="wrap promo-stage">
+    <div class="section-head" style="margin-bottom: 0;">
+      <span class="eyebrow">Promo video &middot; 1:14</span>
+      <h1 style="font-size: clamp(26px, 3.4vw, 38px);">UniGaussianGPT in seventy seconds</h1>
+      <p>Part 1 walks through a generated house and segments it with one click. Part 2 completes a partial house, then lifts out the dining set: each piece is whole, and the floor under it is complete.</p>
+    </div>
+    <video id="promo" controls playsinline preload="metadata" poster="assets/video/promo_poster.jpg">
+      <source src="assets/video/promo.mp4" type="video/mp4">
+    </video>
+    <div class="chapters" aria-label="Chapters">
+      <button type="button" data-t="3.8"><span>0:03</span>Generation</button>
+      <button type="button" data-t="9.0"><span>0:09</span>Walk through the house</button>
+      <button type="button" data-t="26.6"><span>0:26</span>3D semantics</button>
+      <button type="button" data-t="29.9"><span>0:29</span>Click to select</button>
+      <button type="button" data-t="50.8"><span>0:50</span>Completion</button>
+      <button type="button" data-t="56.9"><span>0:56</span>Complete objects</button>
+      <button type="button" data-t="63.3"><span>1:03</span>Clear the room</button>
+    </div>
+    <div class="affil-logos" aria-label="Affiliations">
+      <figure><img src="assets/brand/ntu.png" alt="Nanyang Technological University emblem"><figcaption>Nanyang Technological University</figcaption></figure>
+      <figure><img src="assets/brand/zju.png" alt="Zhejiang University emblem"><figcaption>Zhejiang University</figcaption></figure>
+      <figure><img src="assets/brand/monash.png" alt="Monash University emblem"><figcaption>Monash University</figcaption></figure>
+    </div>
+  </div>
+</main>
+
+<!-- ================================================================= CONSOLE -->
+<main id="console" class="page-view" hidden>
+  <div class="wrap console-page">
+    <div class="console-strip">
+      <div>
+        <span class="eyebrow">Interactive console</span>
+        <h1>Walk through the house from the promo video</h1>
+        <p>The living and dining room the video walks through, walls and ceiling included: 1.1M Gaussians, each with the class UniGaussianGPT predicted. Every piece of furniture is a separate, complete piece: the sofa, the armchairs, the dining table and its chairs, the side tables, the stools, the plants.</p>
+      </div>
+      <div class="keys" aria-label="Keyboard shortcuts">
+        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>walk</span><span><kbd>&larr;</kbd><kbd>&rarr;</kbd>turn around</span><span><kbd>Q</kbd><kbd>E</kbd>turn the piece</span><span><kbd>C</kbd>copy</span><span><kbd>X</kbd>remove</span><span><kbd>T</kbd>semantics</span>
+      </div>
+    </div>
+    <div class="console" id="consoleRoot">
+      <canvas aria-label="First-person 3D view of the house. Walk with W A S D or the arrow keys, drag to look around, click a piece of furniture to select it."></canvas>
+      <div class="console-load">Loading the house</div>
+      <ul class="console-legend" data-legend hidden></ul>
+      <p class="console-status" data-status aria-live="polite"></p>
+      <div class="console-label" data-label hidden><span class="chip"><i></i><span data-name></span></span></div>
+      <div class="console-bar" role="toolbar" aria-label="Console">
+        <div class="seg" role="group" aria-label="View">
+          <button type="button" data-view="rgb" aria-pressed="true">RGB</button>
+          <button type="button" data-view="sem" aria-pressed="false">3D Semantics</button>
+        </div>
+        <span class="sep" aria-hidden="true"></span>
+        <button type="button" data-act="left" disabled title="Turn left (Q)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Turn</button>
+        <button type="button" data-act="right" disabled title="Turn right (E)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>Turn</button>
+        <button type="button" data-act="copy" disabled title="Duplicate (C)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Duplicate</button>
+        <button type="button" data-act="remove" disabled title="Remove (X)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13"/><path d="M9 7V4h6v3"/></svg>Remove</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button type="button" data-act="reset" title="Reset the house"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset</button>
+      </div>
+      <div class="console-pad" aria-label="Walk">
+        <button type="button" data-key="KeyW" aria-label="Forward" style="grid-area:f"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 6l7 10H5z"/></svg></button>
+        <button type="button" data-key="ArrowLeft" aria-label="Turn left" style="grid-area:l"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 12l10-7v14z"/></svg></button>
+        <button type="button" data-key="ArrowRight" aria-label="Turn right" style="grid-area:r"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 12L8 19V5z"/></svg></button>
+        <button type="button" data-key="KeyS" aria-label="Back" style="grid-area:b"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 18L5 8h14z"/></svg></button>
+      </div>
+    </div>
+    <p class="console-foot">W A S D or the arrow keys walk (Shift runs), drag to look around, the wheel steps forward and back; walls and furniture stop you. Click a piece, then drag it, turn it, copy it or remove it: the floor under every piece is complete. The classes and the pieces are the model's output; the house was generated by UniGaussianGPT and closed and furnished for the video with pieces it generated. The edits run in your browser with <a href="https://sparkjs.dev" target="_blank" rel="noopener">Spark</a>.</p>
+  </div>
+</main>
+
+<!-- ================================================================= TECHNICAL DETAILS -->
+<main id="technical-details" class="page-view" hidden>
+  <div class="wrap tech">
+    <div class="tech-grid">
+      <nav class="toc" aria-label="On this page">
+        <a href="#abstract">Abstract</a>
+        <a href="#method">Method</a>
+        <a href="#data">Composed training scenes</a>
+        <a href="#semantics">Semantic understanding</a>
+        <a href="#generation">Generation and completion</a>
+        <a href="#retention">Content retention</a>
+        <a href="#ablation">Ablation</a>
+        <a href="#qualitative">Qualitative results</a>
+      </nav>
+      <div>
+        <header class="tech-hero">
+          <span class="eyebrow">Technical details</span>
+          <h1>UniGaussianGPT: Composable Autoregressive Semantic 3D Gaussians Modeling</h1>
+          <p class="by">Yuchen Xie*, Weijie Wang*, Zihui Gao, Qihang Cao, Jinghao Guo, Donny Y. Chen, Jia-Wang Bian &middot; <a href="assets/paper/UniGaussianGPT.pdf" target="_blank" rel="noopener">full paper (PDF)</a></p>
+        </header>
+
+        <section class="tech-section" id="abstract">
+          <h2>Abstract</h2>
+          <div class="prose">
+            <p>Recent advances in 3D generative modeling have enabled the synthesis of detailed scenes with coherent geometry and appearance, mostly through diffusion models that refine an entire scene holistically. Autoregressive formulations offer a complementary paradigm that constructs Gaussian scenes step by step, bringing a compositional inductive bias under which generation and completion follow from the same next-token prediction. However, these advances largely focus on producing renderable scenes, while recognizing their contents remains a separate task. Semantic information links geometry to the objects and regions it represents, providing a foundation for scene understanding and downstream applications such as robotics and AR/VR.</p>
+            <p>We therefore present <b>UniGaussianGPT</b>, an autoregressive framework that unifies 3D Gaussian scene generation and semantic understanding by learning to predict scene contents and their semantics from shared contextual representations. To support this learning, we build labeled training scenes by composing Gaussian assets converted from complete furniture meshes with separately fitted empty rooms, and supervise Gaussian attributes directly so that occluded surfaces survive tokenization. Generated scenes are thus composable, consisting of semantically labeled and individually complete components. Extensive experiments on composed 3D-FRONT scenes show that UniGaussianGPT achieves state-of-the-art performance in both semantic understanding and scene generation and completion, while better retaining occluded content through tokenization.</p>
+          </div>
+        </section>
+
+        <section class="tech-section" id="method">
+          <h2>Method</h2>
+          <figure class="figure">
+            <div class="frame"><img src="assets/paper/fig/method.webp" alt="Method overview figure from the paper." loading="lazy"></div>
+            <figcaption><b>Figure 2. Overview of UniGaussianGPT.</b> Given input Gaussians, a VQ encoder maps the scene to latent voxels serialized as position and feature tokens <span class="m">p_i, f_i</span>, which a causal transformer models autoregressively. Its hidden states feed two heads: a generation head that predicts the next token, and a semantic head that predicts the category of each voxel from the state at its feature token. Voxel-wise targets are majority-voted from ground-truth Gaussian categories and supervise the model through <span class="m">\mathcal{L}_{\mathrm{sem}}</span>. In the dashed box, the VQ-VAE is trained with the rendering-based <span class="m">\mathcal{L}_{\mathrm{AE}}</span> and an additional attribute loss <span class="m">\mathcal{L}_{\mathrm{attr}}</span> that supervises Gaussians directly from the composable assets, which helps to retain content occluded in furnished views.</figcaption>
+          </figure>
+          <div class="prose">
+            <p>We build on GaussianGPT, which compresses a Gaussian scene into a sparse latent grid of 20&nbsp;cm cells and serializes each occupied cell <span class="m">i</span> as a position token <span class="m">p_i</span> followed by a feature token <span class="m">f_i</span>. A causal transformer models the sequence <span class="m">\mathbf{x}=(p_1,f_1,\ldots,p_N,f_N)</span> by next-token prediction; we keep its backbone and token format.</p>
+            <h3>Semantics read from the state after the feature token</h3>
+            <p>A latent cell may hold only part of an object, so its category can depend on context as well as on its own code. We read the category from the transformer state after the cell's feature token has been consumed, <span class="m">h_i=\mathbf{H}_{2i}</span>: it sees the current position, the realized local code and everything written before it. A two-layer MLP <span class="m">g_\phi</span> maps it to a distribution over classes.</p>
+            <div class="eq">$$q_\phi(y_i=c\mid h_i)=\big[\operatorname{softmax}(g_\phi(h_i))\big]_c,\qquad h_i=\mathbf{H}_{2i}(x_{\le 2i})$$</div>
+            <p>The same state predicts the next scene token, so supervising its semantics trains the representation that decides how the scene continues. Categories are predicted alongside the tokens; they are never inserted into the sequence or fed back, and sampling is unchanged.</p>
+            <div class="eq">$$p_{\theta,\phi}(\mathbf{x},\mathbf{y})=p_\theta(\mathbf{x})\prod_{i=1}^{N}q_\phi\big(y_i\mid h_i(\mathbf{x}_{\le 2i})\big),\qquad \mathcal{L}=\mathcal{L}_{\mathrm{LM}}+\lambda\,\frac{1}{|\mathcal{I}|}\sum_{i\in\mathcal{I}}\mathrm{CE}(\hat{\mathbf{y}}_i,y_i)$$</div>
+            <p>Each decoded Gaussian takes the prediction of the latent cell that contains its center, so labels sit on the primitives that are rendered, including surfaces hidden in a given view.</p>
+            <h3>Attributes supervised in 3D</h3>
+            <p>Rendering losses supervise a hidden surface only through the little it contributes to sampled views. The tokenizer therefore also matches opacity, log-scale and color directly, through the shared 2.5&nbsp;cm base-voxel grid, without assuming one-to-one primitive correspondence:</p>
+            <div class="eq">$$\mathcal{L}_{\text{attr}}=\frac{1}{3}\sum_{k=1}^{3}\frac{\sum_{\hat g}n_{u(\hat g)}\,\big|\mathbf{a}_k(\hat g)-\bar{\mathbf{a}}_{k,u(\hat g)}\big|}{\sum_{\hat g}n_{u(\hat g)}},\qquad(\mathbf{a}_1,\mathbf{a}_2,\mathbf{a}_3)=(\alpha,\ \log\mathbf{s}/r,\ \mathbf{c})$$</div>
+          </div>
+        </section>
+
+        <section class="tech-section" id="data">
+          <h2>Composed training scenes</h2>
+          <div class="prose">
+            <p>Instead of fitting furnished rooms from their views, we convert complete 3D-FUTURE furniture meshes into Gaussian assets, prune each one in isolation, and place them by the 3D-FRONT layouts into a separately fitted empty room <span class="m">\mathcal{B}</span>:</p>
+            <div class="eq">$$\mathcal{G}=\mathcal{B}\,\cup\,\bigcup_{k=1}^{K}\mathcal{T}_k(\mathcal{A}_k)$$</div>
+            <p>Every component keeps the surfaces that become hidden once the room is assembled, such as a chair seat under a table or the floor under a sofa. The assembled scene is still encoded as one sequence, with no asset IDs or per-object token groups; the pieces come apart only through the predicted classes and the retained geometry.</p>
+          </div>
+        </section>
+
+        <section class="tech-section" id="semantics">
+          <h2>Semantic understanding</h2>
+          <p class="cap"><b>Table 1.</b> 480 held-out chunks; all baselines are fine-tuned on our data. 3D metrics use 0.2&nbsp;m latent cells, 2D metrics shared rendered views; fg excludes floor, wall and ceiling. Highlighted: best. &ndash;: no 3D prediction.</p>
+          <div class="tbl"><table>
+            <thead>
+              <tr><th></th><th colspan="4" style="text-align:center">3D (latent cells)</th><th colspan="4" style="text-align:center">2D (rendered views)</th></tr>
+              <tr><th>Method</th><th>mIoU&uarr;</th><th>mAcc&uarr;</th><th>fg-mIoU&uarr;</th><th>fg-mAcc&uarr;</th><th>mIoU&uarr;</th><th>mAcc&uarr;</th><th>fg-mIoU&uarr;</th><th>fg-mAcc&uarr;</th></tr>
+            </thead>
+            <tbody>
+              <tr class="group"><td colspan="9">Image-based methods</td></tr>
+              <tr><td>LSeg</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td>0.406</td><td>0.451</td><td>0.312</td><td>0.358</td></tr>
+              <tr><td>SegVGGT</td><td>0.331</td><td>0.407</td><td>0.262</td><td>0.335</td><td>0.394</td><td>0.464</td><td>0.311</td><td>0.386</td></tr>
+              <tr><td>IGGT</td><td>0.343</td><td>0.404</td><td>0.238</td><td>0.299</td><td>0.435</td><td>0.476</td><td>0.334</td><td>0.382</td></tr>
+              <tr><td>3DGS-GBP w/ LSeg</td><td>0.348</td><td>0.411</td><td>0.242</td><td>0.306</td><td>0.441</td><td>0.488</td><td>0.342</td><td>0.396</td></tr>
+              <tr class="group"><td colspan="9">Gaussian-based methods</td></tr>
+              <tr><td>SceneSplat</td><td>0.385</td><td>0.425</td><td>0.278</td><td>0.321</td><td>0.387</td><td>0.427</td><td>0.280</td><td>0.323</td></tr>
+              <tr class="ours"><td>UniGaussianGPT</td><td class="best">0.578</td><td class="best">0.731</td><td class="best">0.509</td><td class="best">0.685</td><td class="best">0.547</td><td class="best">0.719</td><td class="best">0.476</td><td class="best">0.676</td></tr>
+            </tbody>
+          </table></div>
+          <div class="prose">
+            <p>UniGaussianGPT is best on all eight metrics. In 3D it improves over SceneSplat by 0.193 mIoU and 0.306 mAcc, and the gain holds on foreground classes (fg-mIoU 0.509 vs 0.278), so it is not carried by floors and walls. Image-based baselines score higher in rendered views than in 3D and SceneSplat the other way round; no baseline leads in both, while our labels lead in both because the rendered labels come straight from the 3D prediction. It labels each sequence in one teacher-forced pass, where each cell sees only itself and the cells before it; the baselines see the whole window.</p>
+          </div>
+        </section>
+
+        <section class="tech-section" id="generation">
+          <h2>Generation and completion</h2>
+          <p class="cap"><b>Table 2.</b> Held-out scenes. Appearance: orbit renderings; layout: top-down depth maps of the bottom 60% of Gaussians; geometry: Chamfer COV/MMD on 16k points. CLIP applies only to completion. Highlighted: best within each setting.</p>
+          <div class="tbl"><table>
+            <thead>
+              <tr><th></th><th colspan="2" style="text-align:center">Appearance</th><th colspan="2" style="text-align:center">Geometry</th><th colspan="2" style="text-align:center">Layout</th><th></th></tr>
+              <tr><th>Method</th><th>FID&darr;</th><th>KID&darr;</th><th>COV&uarr;</th><th>MMD&darr;</th><th>FID&darr;</th><th>KID&darr;</th><th>CLIP&uarr;</th></tr>
+            </thead>
+            <tbody>
+              <tr class="group"><td colspan="8">Unconditional generation</td></tr>
+              <tr><td>WorldGrow</td><td>84.78</td><td>0.086</td><td>0.390</td><td>0.085</td><td>97.08</td><td>0.076</td><td class="na">&ndash;</td></tr>
+              <tr><td>GaussianGPT</td><td>89.64</td><td>0.091</td><td>0.374</td><td>0.076</td><td>104.03</td><td>0.085</td><td class="na">&ndash;</td></tr>
+              <tr class="ours"><td>UniGaussianGPT</td><td class="best">70.67</td><td class="best">0.071</td><td class="best">0.429</td><td class="best">0.072</td><td class="best">68.36</td><td class="best">0.036</td><td class="na">&ndash;</td></tr>
+              <tr class="group"><td colspan="8">Completion, 25% context</td></tr>
+              <tr><td>WorldGrow</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td></tr>
+              <tr><td>GaussianGPT</td><td>79.36</td><td>0.063</td><td class="best">0.970</td><td class="best">0.056</td><td>129.40</td><td>0.064</td><td>0.887</td></tr>
+              <tr class="ours"><td>UniGaussianGPT</td><td class="best">73.84</td><td class="best">0.056</td><td>0.940</td><td>0.065</td><td class="best">101.73</td><td class="best">0.029</td><td class="best">0.892</td></tr>
+              <tr class="group"><td colspan="8">Completion, 50% context</td></tr>
+              <tr><td>WorldGrow</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td><td class="na">&ndash;</td></tr>
+              <tr><td>GaussianGPT</td><td>83.81</td><td>0.069</td><td>0.865</td><td>0.068</td><td>133.63</td><td>0.071</td><td>0.877</td></tr>
+              <tr class="ours"><td>UniGaussianGPT</td><td class="best">73.76</td><td class="best">0.056</td><td class="best">0.965</td><td class="best">0.053</td><td class="best">99.58</td><td class="best">0.029</td><td class="best">0.900</td></tr>
+            </tbody>
+          </table></div>
+          <div class="prose">
+            <p>Unconditionally, UniGaussianGPT is best on every appearance, geometry and layout metric; the largest gain is layout FID, 68.36 against 97.08 for WorldGrow and 104.03 for GaussianGPT. The same next-token process completes partial scenes with the best appearance, layout and CLIP scores in both settings; layout KID is more than halved. Geometry is slightly behind GaussianGPT at 25% context and better at 50%.</p>
+          </div>
+        </section>
+
+        <section class="tech-section" id="retention">
+          <h2>Content retention and the ablation</h2>
+          <div style="display:grid; gap:28px;">
+            <div style="display:grid; gap:12px; align-content:start;">
+              <p class="cap" id="ablation-cap"><b>Table 3.</b> Recall: % of hidden / visible reference Gaussians with a decoded neighbor within 5&nbsp;cm and opacity &gt; 0.15. &Delta;&alpha;: hidden recall lost to the opacity threshold.</p>
+              <div class="tbl"><table>
+                <thead>
+                  <tr><th></th><th colspan="3" style="text-align:center">Reconstruction</th><th colspan="3" style="text-align:center">Retention</th></tr>
+                  <tr><th>Tokenizer</th><th>PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th><th>Hid.&uarr;</th><th>Vis.&uarr;</th><th>&Delta;&alpha;&darr;</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>GaussianGPT</td><td>18.29</td><td>0.7819</td><td>0.4069</td><td>83.32</td><td>84.14</td><td>9.95</td></tr>
+                  <tr class="ours"><td>Ours</td><td class="best">26.01</td><td class="best">0.8685</td><td class="best">0.3262</td><td class="best">92.96</td><td class="best">93.38</td><td class="best">0.38</td></tr>
+                </tbody>
+              </table></div>
+            </div>
+            <div style="display:grid; gap:12px; align-content:start;" id="ablation">
+              <p class="cap"><b>Table 4.</b> Each row changes one component of the full model. CE: next-token cross-entropy; semantics: 3D metrics on held-out chunks.</p>
+              <div class="tbl"><table>
+                <thead>
+                  <tr><th></th><th colspan="2" style="text-align:center">CE&darr;</th><th colspan="2" style="text-align:center">Semantics&uarr;</th></tr>
+                  <tr><th>Variant</th><th>Train</th><th>Val</th><th>mIoU</th><th>mAcc</th></tr>
+                </thead>
+                <tbody>
+                  <tr class="ours"><td>Full model</td><td>2.122</td><td class="best">2.213</td><td>0.578</td><td class="best">0.731</td></tr>
+                  <tr><td>w/o sem. head</td><td class="best">2.113</td><td>2.221</td><td class="na">&ndash;</td><td class="na">&ndash;</td></tr>
+                  <tr><td>frozen GPT</td><td>2.870</td><td>2.854</td><td>0.342</td><td>0.561</td></tr>
+                  <tr><td>Lov&aacute;sz</td><td>2.294</td><td>2.317</td><td class="best">0.584</td><td>0.722</td></tr>
+                </tbody>
+              </table></div>
+            </div>
+          </div>
+          <div class="prose">
+            <p>Direct attribute supervision raises hidden recall from 83.32% to 92.96% and shrinks the opacity gap from 9.95 to 0.38 points: occluded surfaces come back with real opacity, not as faint Gaussians near the right place. That is what keeps a room intact when a piece is removed or moved, as in the console.</p>
+            <p>Removing the semantic head slightly lowers training CE but raises validation CE, so semantic supervision does not compete with next-token prediction. Freezing the transformer and training only the head drops 3D mIoU from 0.578 to 0.342: the readout needs an adaptable backbone. Lov&aacute;sz-Softmax gains 0.006 mIoU at a clear cost in CE, so we keep the per-cell cross-entropy.</p>
+          </div>
+        </section>
+
+        <section class="tech-section" id="qualitative">
+          <h2>Qualitative results</h2>
+          <figure class="figure">
+            <div class="frame"><img src="assets/paper/fig/fig_qualitative.webp" alt="Qualitative results figure from the paper: semantic predictions against baselines, unconditional generation, completion, and component edits." loading="lazy"></div>
+            <figcaption><b>Figure 3. Qualitative results.</b> Semantics: predicted categories on a held-out scene, compared with fine-tuned baselines. Uncond. gen.: two unconditional samples per method. Completion: two completions per method from the same partial condition. Editing: a scene generated from the condition is decomposed by its predicted categories; the selected object is removed, rotated, or duplicated while the rest of the scene is unchanged.</figcaption>
+          </figure>
+          <figure class="figure">
+            <div class="frame tall"><img src="assets/paper/fig/fig_apx-vis-sem.webp" alt="Appendix figure: RGB, ground-truth categories and UniGaussianGPT's categories for several held-out chunks." loading="lazy"></div>
+            <figcaption><b>Appendix: categories of held-out chunks.</b> RGB, ground truth and UniGaussianGPT (teacher forcing) on the same Gaussians and camera, ceiling removed. Each column is one case: RGB (top), ground truth (middle) and UniGaussianGPT (bottom).</figcaption>
+          </figure>
+          <figure class="figure">
+            <div class="frame tall"><img src="assets/paper/fig/fig_apx-vis-cond.webp" alt="Appendix figure: scene completion from spatial context, with the condition, the ground truth and two completions." loading="lazy"></div>
+            <figcaption><b>Appendix: scene completion from spatial context.</b> The condition, the ground truth and two completions by UniGaussianGPT (selected examples). Insets: top-down views with the ceiling removed.</figcaption>
+          </figure>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">UniGaussianGPT &middot; Nanyang Technological University, Zhejiang University, Monash University &middot; 2026</footer>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/site.js"></script>
+<script type="module">
+  import { initConsole } from "./assets/console/console.js";
+  let started = false;
+  window.addEventListener("view:shown", (e) => {
+    if (e.detail !== "console" || started) return;
+    started = true;
+    const root = document.getElementById("consoleRoot");
+    initConsole(root, "./assets/console/").then((h) => { window.__console = h; }).catch((err) => {
+      root.querySelector(".console-load").textContent = "The 3D view could not start: " + (err && err.message ? err.message : err) + ". It needs WebGL 2.";
+      console.error(err);
+    });
+  });
+  if (location.hash === "#console") window.dispatchEvent(new CustomEvent("view:shown", { detail: "console" }));
+</script>
+</body>
+</html>
