@@ -18,7 +18,7 @@
       });
       const promo = document.getElementById("promo");
       if (promo && view !== "promo-video") promo.pause();
-      const hero = document.querySelector(".masthead video");
+      const hero = document.getElementById("hl");
       if (hero) { if (view === "home") hero.play().catch(() => {}); else hero.pause(); }
       current = view;
       window.dispatchEvent(new CustomEvent("view:shown", { detail: view }));
@@ -68,4 +68,30 @@
     promo.currentTime = Number(b.dataset.t);
     promo.play().catch(() => {});
   }));
+  // the highlights video under the title band: the step for the current time is lit, with its
+  // progress, and its sentence shown; a step jumps to its part
+  const hl = document.getElementById("hl");
+  const steps = [...document.querySelectorAll(".steps [data-t]")];
+  const cap = document.querySelector("[data-step-cap]");
+  if (hl && steps.length) {
+    const t0 = steps.map((b) => Number(b.dataset.t));
+    let lit = -1;
+    const tick = () => {
+      const d = hl.duration || 0, t = hl.currentTime;
+      let i = 0;
+      while (i + 1 < t0.length && t >= t0[i + 1]) i++;
+      const end = i + 1 < t0.length ? t0[i + 1] : d;
+      if (i !== lit) {
+        steps.forEach((b, k) => b.setAttribute("aria-pressed", String(k === i)));
+        if (cap) cap.textContent = steps[i].dataset.cap;
+        lit = i;
+      }
+      steps[i].style.setProperty("--p", end > t0[i] ? Math.min(1, (t - t0[i]) / (end - t0[i])).toFixed(3) : 0);
+      if (!hl.paused) requestAnimationFrame(tick);
+    };
+    hl.addEventListener("play", () => requestAnimationFrame(tick));
+    hl.addEventListener("seeked", tick);
+    steps.forEach((b) => b.addEventListener("click", () => { hl.currentTime = Number(b.dataset.t) + 0.01; hl.play().catch(() => {}); }));
+    tick();
+  }
 })();

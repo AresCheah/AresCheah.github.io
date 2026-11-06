@@ -5,219 +5,238 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>UniGaussianGPT</title>
 <meta name="description" content="UniGaussianGPT: one autoregressive model that generates 3D Gaussian scenes and labels every Gaussian with its semantic class. Promo video, interactive console and technical details.">
-<meta name="theme-color" content="#07090e">
+<meta name="theme-color" content="#e9f1ef">
 <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Philosopher:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
 <style>
 *, *::before, *::after { box-sizing: border-box; }
+/* Light academic style after Weijie Wang's project pages (VolSplat, ZPressor, DriveGen3D): a pale
+   tinted band for the title block, the method's name keyed in colour, blue author links, black
+   buttons, Philosopher type, grey body text, section headings over a rule. */
 :root {
-  color-scheme: dark;
-  --bg: #07090e;
-  --bg-2: #0c1018;
-  --surface: #111722;
-  --surface-2: #161d2a;
-  --line: #222b3a;
-  --line-soft: #1a2230;
-  --text: #e9edf4;
-  --muted: #9aa5b8;
-  --faint: #6c778b;
-  --accent: #5ad7ee;
-  --accent-ink: #062029;
-  --best: rgba(90, 215, 238, 0.13);
-  --ours: rgba(250, 150, 40, 0.10);
-  --silver: linear-gradient(180deg, #ffffff 0%, #dfe4ee 45%, #9ea8bb 100%);
-  --display: "Montserrat", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+  --bg: #ffffff;
+  --band: #e9f1ef;
+  --surface: #f5f8f7;
+  --surface-2: #eef3f2;
+  --line: #d9e2e0;
+  --line-soft: #e6ecea;
+  --ink: #1f2428;
+  --text: #595959;
+  --muted: #6f767b;
+  --faint: #9aa1a6;
+  --link: #1a6fe0;
+  --key: #d1453b;
+  --accent: #13836f;
+  --btn: #12161b;
+  --best: rgba(19, 131, 111, 0.13);
+  --ours: rgba(250, 150, 40, 0.12);
+  --serif: "Philosopher", "Optima", "Candara", "Segoe UI", system-ui, sans-serif;
+  --display: var(--serif);
+  --body: var(--serif);
+  --ui: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --nav-h: 60px;
+  --nav-h: 56px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --wrap: min(1120px, 100% - 32px);
+  --wrap: min(960px, 100% - 32px);
+  --c-sofa: rgb(220, 60, 60); --c-chair: rgb(250, 150, 40); --c-stool: rgb(240, 196, 40); --c-table: rgb(60, 180, 80);
+  --c-cabinet: rgb(60, 110, 220); --c-decor: rgb(255, 120, 190); --c-floor: rgb(150, 130, 110);
 }
 html { background: var(--bg); scroll-behavior: smooth; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.65 var(--body); -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 17px/1.7 var(--body); -webkit-font-smoothing: antialiased; }
 img, video, canvas { max-width: 100%; display: block; }
-a { color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; border-radius: 4px; }
 [hidden] { display: none !important; }
 .wrap { width: var(--wrap); margin-inline: auto; }
-h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; text-wrap: balance; margin: 0; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; color: var(--ink); letter-spacing: 0; line-height: 1.2; text-wrap: balance; margin: 0; }
 p { margin: 0; }
-.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+b, strong { color: #3d4246; }
+.eyebrow { font: 600 12px/1 var(--ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.key { color: var(--key); }
 
 /* ---------- nav */
-.site-nav { position: fixed; inset: 0 0 auto 0; z-index: 50; height: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); padding: env(safe-area-inset-top, 0px) max(16px, calc((100% - 1240px) / 2)) 0;
-  display: flex; align-items: center; gap: 24px; background: rgba(7, 9, 14, 0.72); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid var(--line-soft); }
-.wordmark { font: 700 17px/1 var(--display); letter-spacing: 0.01em; text-decoration: none; background: var(--silver); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; }
-.site-nav-links { display: flex; gap: 4px; margin-inline: auto; }
-.site-nav-links a { font: 500 14px/1 var(--body); color: var(--muted); text-decoration: none; padding: 9px 12px; border-radius: 8px; white-space: nowrap; transition: color .2s, background .2s; }
-.site-nav-links a:hover { color: var(--text); background: var(--surface); }
-.site-nav-links a[aria-current="page"] { color: var(--text); background: var(--surface-2); }
-.site-nav-side { display: flex; align-items: center; gap: 10px; font: 500 14px/1 var(--body); color: var(--faint); }
-.site-nav-side a { color: var(--muted); text-decoration: none; }
-.site-nav-side a:hover { color: var(--text); }
-.site-nav-side .soon { color: var(--faint); }
+.site-nav { position: fixed; inset: 0 0 auto 0; z-index: 50; height: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); padding: env(safe-area-inset-top, 0px) max(16px, calc((100% - 1180px) / 2)) 0;
+  display: flex; align-items: center; gap: 24px; background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%); border-bottom: 1px solid var(--line-soft); }
+.wordmark { font: 700 18px/1 var(--display); color: var(--ink); white-space: nowrap; }
+.wordmark:hover { text-decoration: none; }
+.site-nav-links { display: flex; gap: 2px; margin-inline: auto; }
+.site-nav-links a { font: 400 16px/1 var(--body); color: var(--muted); padding: 9px 12px; border-radius: 8px; white-space: nowrap; transition: color .2s, background .2s; }
+.site-nav-links a:hover { color: var(--ink); background: var(--surface); text-decoration: none; }
+.site-nav-links a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--key); border-radius: 0; }
+.site-nav-side { display: flex; align-items: center; gap: 10px; font: 400 15px/1 var(--body); color: var(--faint); }
+.site-nav-side a { color: var(--muted); }
+.site-nav-side a:hover { color: var(--ink); text-decoration: none; }
 @media (max-width: 860px) {
-  .site-nav { flex-wrap: wrap; height: auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) 8px; row-gap: 6px; }
+  .site-nav { flex-wrap: wrap; height: auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) 6px; row-gap: 4px; }
   .site-nav-links { order: 3; width: 100%; margin: 0; overflow-x: auto; }
   .site-nav-side { margin-left: auto; }
 }
 main.page-view { padding-top: var(--nav-h); min-height: 100vh; }
-@media (max-width: 860px) { main.page-view { padding-top: 104px; } }
+@media (max-width: 860px) { main.page-view { padding-top: 96px; } }
 
-/* ---------- masthead */
-.masthead { position: relative; overflow: hidden; margin-top: calc(-1 * var(--nav-h)); padding: calc(var(--nav-h) + 96px) 16px 88px; isolation: isolate; }
-.masthead-media { position: absolute; inset: 0; z-index: -1; }
-.masthead-media video, .masthead-media img { width: 100%; height: 100%; object-fit: cover; }
-.masthead-shade { position: absolute; inset: 0; background:
-  radial-gradient(120% 90% at 50% 40%, rgba(7, 9, 14, 0.55) 0%, rgba(7, 9, 14, 0.82) 60%, var(--bg) 100%),
-  linear-gradient(180deg, rgba(7, 9, 14, 0.4) 0%, rgba(7, 9, 14, 0) 30%, var(--bg) 100%); }
-.masthead-content { width: min(1120px, 100%); margin-inline: auto; text-align: center; display: grid; gap: 22px; justify-items: center; }
-.hero-title { font: 700 clamp(44px, 8.4vw, 104px)/1 var(--display); letter-spacing: -0.02em; background: var(--silver); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hero-sub { font: 500 clamp(16px, 2vw, 22px)/1.4 var(--display); letter-spacing: 0.01em; color: #c8cfdc; max-width: 62ch; text-wrap: balance; }
-.authors { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; font: 500 clamp(15px, 1.6vw, 18px)/1.4 var(--body); color: var(--text); max-width: 1060px; }
-.authors a { color: inherit; text-decoration: none; border-bottom: 1px solid transparent; transition: color .2s, border-color .2s; }
-.authors a:hover { color: var(--accent); border-bottom-color: currentColor; }
-.authors sup, .affiliations sup { font: 500 0.68em/0 var(--mono); color: var(--accent); margin-left: 1px; }
-.affil-mark { display: inline-block; height: 2.1em; width: auto; vertical-align: -0.72em; margin-right: 8px; }
-.affiliations { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 22px; color: var(--muted); font-size: 15px; }
-.author-notes { color: var(--faint); font-size: 13px; margin-top: -10px; }
+/* ---------- title band */
+.band { background: var(--band); border-radius: 0 0 14px 14px; padding: 54px 16px 40px; }
+.band-inner { width: min(920px, 100%); margin-inline: auto; text-align: center; display: grid; gap: 14px; justify-items: center; }
+.title { font: 700 clamp(28px, 4.2vw, 44px)/1.22 var(--display); color: var(--ink); max-width: 900px; }
+.band hr { width: 100%; border: 0; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 10px 0 4px; }
+.authors { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; font: 400 clamp(16px, 1.7vw, 18px)/1.5 var(--body); max-width: 860px; }
+.authors a { color: var(--link); }
+.authors sup, .affiliations sup { font: 400 0.7em/0 var(--body); color: var(--ink); margin-left: 1px; }
+.affiliations { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 18px; color: var(--muted); font-size: 16px; }
+.author-notes { color: var(--muted); font-size: 15px; }
 .resource-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
-.btn { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line); background: rgba(17, 23, 34, 0.7); color: var(--text);
-  font: 500 14px/1 var(--body); text-decoration: none; cursor: pointer; transition: border-color .2s, background .2s, transform .2s var(--ease); }
-.btn:hover { border-color: #3a4558; background: var(--surface-2); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--btn); background: var(--btn); color: #fff;
+  font: 400 16px/1 var(--body); cursor: pointer; transition: background .2s, transform .2s var(--ease), box-shadow .2s; }
+.btn:hover { background: #2b323a; text-decoration: none; box-shadow: 0 6px 16px rgba(18, 22, 27, 0.18); }
 .btn:active { transform: translateY(1px); }
-.btn svg { width: 17px; height: 17px; flex: none; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.btn.primary:hover { background: #7fe2f3; }
-.btn[aria-disabled="true"] { color: var(--faint); cursor: default; }
-.btn .tag { font: 500 11px/1 var(--mono); color: var(--faint); letter-spacing: 0.04em; }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn.light { background: #fff; color: var(--ink); border-color: var(--line); }
+.btn.light:hover { background: var(--surface); box-shadow: none; }
+
+/* ---------- highlights video (autoplays under the title band) */
+.hl { padding-block: 34px 8px; }
+.hl-frame { margin: 0 auto; width: min(820px, 100%); border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid var(--line); box-shadow: 0 18px 44px rgba(26, 52, 48, 0.13); }
+.hl-frame video { width: 100%; aspect-ratio: 4 / 3; }
+.steps { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 18px; }
+.steps button { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line); background: #fff;
+  color: var(--muted); font: 400 15px/1 var(--body); cursor: pointer; transition: color .2s, border-color .2s, background .2s; }
+.steps button i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot); flex: none; }
+.steps button:hover { color: var(--ink); border-color: #b9c6c3; }
+.steps button[aria-pressed="true"] { color: var(--ink); border-color: var(--dot); background: color-mix(in srgb, var(--dot) 10%, #fff); }
+.steps button::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: calc(var(--p, 0) * 100%); background: var(--dot); opacity: 0; }
+.steps button[aria-pressed="true"]::after { opacity: 1; }
 
 /* ---------- home sections */
-.section { padding-block: 72px; }
-.section + .section { border-top: 1px solid var(--line-soft); }
-.section-head { display: grid; gap: 12px; margin-bottom: 32px; max-width: 760px; }
-.section-head h2 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.15; }
-.section-head p { color: var(--muted); font-size: 17px; }
+.section { padding-block: 40px; }
+.section h2, .section-title { font-size: clamp(24px, 2.8vw, 30px); padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.lead { font-size: 18px; max-width: 74ch; }
+.lead b { color: var(--ink); }
 .figure { margin: 0; display: grid; gap: 12px; }
-.figure .frame { background: #fff; border-radius: 14px; padding: clamp(8px, 1.6vw, 18px); overflow: hidden; }
+.figure .frame { background: #fff; border-radius: 12px; padding: clamp(8px, 1.6vw, 16px); overflow: hidden; border: 1px solid var(--line-soft); }
 .figure .frame.dark { background: var(--surface); padding: 0; }
 .figure .frame.tall img { max-width: 640px; margin-inline: auto; }
-.figure figcaption { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 900px; }
-.figure figcaption b { color: var(--text); font-weight: 600; }
+.figure figcaption { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 900px; }
+.figure figcaption b { color: var(--ink); font-weight: 700; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.stat { border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 20px; background: var(--bg-2); display: grid; gap: 8px; align-content: start; }
-.stat .v { font: 600 clamp(34px, 4.4vw, 48px)/1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.stat .k { font: 500 12px/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
-.stat p { color: var(--muted); font-size: 14px; line-height: 1.55; }
-.stat p b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat { border: 1px solid var(--line); border-top: 4px solid var(--dot, var(--accent)); border-radius: 12px; padding: 20px 20px 18px; background: #fff; display: grid; gap: 8px; align-content: start; }
+.stat .v { font: 700 clamp(34px, 4.2vw, 46px)/1 var(--display); color: var(--dot, var(--accent)); font-variant-numeric: tabular-nums; }
+.stat .k { font: 600 12px/1.3 var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
+.stat p { color: var(--muted); font-size: 15px; line-height: 1.55; }
+.stat p b { color: var(--ink); font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .stats { grid-template-columns: 1fr; } }
-.split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 36px; align-items: center; }
+.split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; align-items: center; }
 @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
-.console-teaser { position: relative; display: block; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--bg-2); }
+.console-teaser { position: relative; display: block; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 12px 30px rgba(26, 52, 48, 0.10); }
 .console-teaser img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; transition: transform .6s var(--ease); }
 .console-teaser:hover img { transform: scale(1.02); }
-.console-teaser .chip { position: absolute; left: 16px; bottom: 16px; }
-.ops { list-style: none; padding: 0; margin: 18px 0 26px; display: grid; gap: 10px; }
-.ops li { display: grid; grid-template-columns: 116px 1fr; gap: 12px; color: var(--muted); font-size: 15px; }
-.ops li b { font: 500 13px/1.6 var(--mono); color: var(--text); }
-.chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.94); color: #10141b; font: 600 13px/1 var(--body); }
+.console-teaser .chip { position: absolute; left: 14px; bottom: 14px; }
+.ops { list-style: none; padding: 0; margin: 14px 0 22px; display: grid; gap: 8px; }
+.ops li { display: grid; grid-template-columns: 104px 1fr; gap: 12px; color: var(--text); font-size: 16px; line-height: 1.5; }
+.ops li b { color: var(--ink); font-weight: 700; }
+.chip { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(255, 255, 255, 0.95); color: #1f2428; font: 600 13px/1 var(--ui); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
 .chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot, #fa9628); }
-.bib { position: relative; background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; }
-.bib pre { margin: 0; padding: 22px 24px; overflow-x: auto; font: 400 13.5px/1.7 var(--mono); color: #c9d2e0; }
-.bib .copy { position: absolute; top: 12px; right: 12px; height: 34px; }
-.note { color: var(--faint); font-size: 13px; margin-top: 10px; }
+.bib { position: relative; background: #f6f8fa; border: 1px solid var(--line); border-radius: 10px; }
+.bib pre { margin: 0; padding: 20px 22px; overflow-x: auto; font: 400 13.5px/1.7 var(--mono); color: #33393f; }
+.bib .copy { position: absolute; top: 10px; right: 10px; height: 32px; padding: 0 12px; font-size: 14px; }
+.note { color: var(--faint); font-size: 14px; margin-top: 10px; }
 
 /* ---------- promo */
-.promo-stage { padding-block: 40px 72px; display: grid; gap: 22px; }
-.promo-stage video { width: 100%; border-radius: 16px; background: #000; border: 1px solid var(--line); aspect-ratio: 16 / 9; }
+.promo-stage { padding-block: 36px 64px; display: grid; gap: 20px; }
+.page-head { display: grid; gap: 10px; max-width: 780px; }
+.page-head h1 { font-size: clamp(26px, 3.2vw, 36px); }
+.page-head p { color: var(--text); }
+.promo-stage video { width: 100%; border-radius: 14px; background: #000; border: 1px solid var(--line); aspect-ratio: 16 / 9; box-shadow: 0 18px 44px rgba(26, 52, 48, 0.14); }
 .chapters { display: flex; flex-wrap: wrap; gap: 8px; }
-.chapters button { font: 500 13px/1 var(--body); color: var(--muted); background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; height: 34px; padding: 0 14px; cursor: pointer; }
-.chapters button:hover { color: var(--text); border-color: #3a4558; }
-.chapters button span { font-family: var(--mono); color: var(--faint); margin-right: 6px; }
-.affil-logos { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 52px; margin-top: 8px; padding-top: 26px; border-top: 1px solid var(--line-soft); }
-.affil-logos figure { margin: 0; display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 15px; }
-.affil-logos img { height: 72px; width: auto; }
+.chapters button { font: 400 15px/1 var(--body); color: var(--muted); background: #fff; border: 1px solid var(--line); border-radius: 999px; height: 34px; padding: 0 14px; cursor: pointer; }
+.chapters button:hover { color: var(--ink); border-color: #b9c6c3; }
+.chapters button span { font-family: var(--mono); font-size: 12px; color: var(--faint); margin-right: 6px; }
 
 /* ---------- console */
-.console-page { padding-block: 28px 56px; display: grid; gap: 18px; }
+.console-page { padding-block: 28px 56px; display: grid; gap: 16px; }
 .console-strip { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 28px; }
-.console-strip h1 { font-size: clamp(24px, 3vw, 32px); }
-.console-strip p { color: var(--muted); max-width: 64ch; margin-top: 8px; }
-.console { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
-  background: radial-gradient(120% 120% at 50% 0%, #141b27 0%, #0a0e15 70%); height: min(72vh, 720px); min-height: 420px; touch-action: none; }
+.console-strip h1 { font-size: clamp(24px, 3vw, 32px); margin-top: 8px; }
+.console-strip p { color: var(--text); max-width: 66ch; margin-top: 8px; }
+.console { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(120% 120% at 50% 0%, #f7faf9 0%, #e4ebe9 75%); height: min(72vh, 720px); min-height: 420px; touch-action: none; box-shadow: 0 18px 44px rgba(26, 52, 48, 0.12); }
 .console canvas { width: 100%; height: 100%; cursor: grab; }
 .console.is-dragging canvas { cursor: grabbing; }
-.console-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 14px; background: rgba(250, 251, 253, 0.96);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); max-width: calc(100% - 24px); overflow-x: auto; }
+.console-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 14px; background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 10px 30px rgba(20, 40, 40, 0.18); max-width: calc(100% - 24px); overflow-x: auto; }
 .console-bar button { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 13px; border: 0; border-radius: 10px; background: transparent; color: #1a2130;
-  font: 600 14px/1 var(--body); cursor: pointer; }
-.console-bar button:hover:not(:disabled) { background: #edf0f5; }
+  font: 600 14px/1 var(--ui); cursor: pointer; }
+.console-bar button:hover:not(:disabled) { background: #edf2f1; }
 .console-bar button:disabled { color: #a3abb8; cursor: default; }
 .console-bar button svg { width: 17px; height: 17px; }
-.console-bar .seg { display: flex; background: #eceff4; border-radius: 10px; padding: 3px; gap: 2px; }
+.console-bar .seg { display: flex; background: #eef2f1; border-radius: 10px; padding: 3px; gap: 2px; }
 .console-bar .seg button { height: 32px; }
-.console-bar .seg button[aria-pressed="true"] { background: #4f46e5; color: #fff; }
-.console-bar .sep { width: 1px; background: #dde2ea; margin: 6px 2px; flex: none; }
-.console-legend { position: absolute; top: 14px; left: 14px; list-style: none; margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(250, 251, 253, 0.95); color: #1a2130;
-  display: grid; gap: 5px; font: 500 12px/1.2 var(--body); text-transform: capitalize; }
-.console-legend::before { content: "Semantic classes"; font: 600 10px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: #6b7487; margin-bottom: 3px; }
+.console-bar .seg button[aria-pressed="true"] { background: var(--btn); color: #fff; }
+.console-bar .sep { width: 1px; background: #dde4e2; margin: 6px 2px; flex: none; }
+.console-legend { position: absolute; top: 14px; left: 14px; list-style: none; margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.95); color: #1a2130;
+  display: grid; gap: 5px; font: 500 12px/1.2 var(--ui); text-transform: capitalize; box-shadow: 0 4px 14px rgba(20, 40, 40, 0.10); }
+.console-legend::before { content: "Semantic classes"; font: 600 10px/1 var(--ui); letter-spacing: 0.1em; text-transform: uppercase; color: #6b7487; margin-bottom: 3px; }
 .console-legend li { display: flex; align-items: center; gap: 8px; }
 .console-legend i { width: 11px; height: 11px; border-radius: 3px; }
 .console-label { position: absolute; left: 0; top: 0; pointer-events: none; }
-.console-status { position: absolute; top: 14px; right: 14px; max-width: min(360px, 60%); padding: 9px 12px; border-radius: 10px; background: rgba(10, 14, 21, 0.72); color: #d6dce6;
-  font: 500 13px/1.45 var(--body); backdrop-filter: blur(6px); }
+.console-status { position: absolute; top: 14px; right: 14px; max-width: min(360px, 60%); padding: 9px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.92); color: #2b3137;
+  font: 500 13px/1.45 var(--ui); box-shadow: 0 4px 14px rgba(20, 40, 40, 0.10); }
 .console-pad { position: absolute; right: 14px; bottom: 76px; display: none; grid-template: ". f ." 44px "l . r" 44px ". b ." 44px / 44px 44px 44px; gap: 4px; }
-.console-pad button { border: 0; border-radius: 10px; background: rgba(250, 251, 253, 0.85); color: #1a2130; display: grid; place-items: center; touch-action: none; }
+.console-pad button { border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.9); color: #1a2130; display: grid; place-items: center; touch-action: none; }
 .console-pad svg { width: 18px; height: 18px; }
 @media (pointer: coarse) { .console-pad { display: grid; } }
 .console-load { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font: 500 14px/1 var(--mono); }
 .console.is-ready .console-load { display: none; }
-.keys { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 14px; }
-.keys kbd { font: 500 12px/1 var(--mono); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 3px 7px; margin-right: 4px; }
-.console-foot { color: var(--faint); font-size: 13px; max-width: 90ch; }
+.keys { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font: 400 14px/1.6 var(--ui); }
+.keys kbd { font: 500 12px/1 var(--mono); color: var(--ink); background: #fff; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 3px 7px; margin-right: 4px; }
+.console-foot { color: var(--muted); font-size: 15px; max-width: 92ch; }
 
 /* ---------- technical details */
 .tech { padding-block: 40px 88px; }
-.tech-grid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
-.toc { position: sticky; top: calc(var(--nav-h) + 28px); align-self: start; display: grid; gap: 2px; font-size: 14px; }
-.toc a { color: var(--faint); text-decoration: none; padding: 6px 10px; border-left: 2px solid var(--line-soft); }
-.toc a:hover { color: var(--text); border-left-color: var(--accent); }
+.tech-grid { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 44px; }
+.tech-grid .wrap, .tech { --wrap: min(1120px, 100% - 32px); }
+.toc { position: sticky; top: calc(var(--nav-h) + 28px); align-self: start; display: grid; gap: 2px; font-size: 15px; }
+.toc a { color: var(--muted); padding: 5px 10px; border-left: 2px solid var(--line-soft); }
+.toc a:hover { color: var(--ink); border-left-color: var(--key); text-decoration: none; }
 @media (max-width: 900px) { .tech-grid { grid-template-columns: 1fr; } .toc { display: none; } }
-.tech-hero { display: grid; gap: 14px; margin-bottom: 44px; }
-.tech-hero h1 { font-size: clamp(28px, 3.6vw, 42px); line-height: 1.12; }
-.tech-hero .by { color: var(--muted); font-size: 15px; }
-.tech-section { padding-block: 34px; border-top: 1px solid var(--line-soft); display: grid; gap: 18px; scroll-margin-top: calc(var(--nav-h) + 16px); }
-.tech-section:first-of-type { border-top: 0; padding-top: 0; }
-.tech-section h2 { font-size: clamp(22px, 2.6vw, 28px); }
-.tech-section h3 { font-size: 18px; margin-top: 10px; }
-.prose { display: grid; gap: 14px; max-width: 74ch; color: #cdd4e0; }
-.prose b { color: var(--text); font-weight: 600; }
+.tech-hero { display: grid; gap: 12px; margin-bottom: 40px; }
+.tech-hero h1 { font-size: clamp(28px, 3.4vw, 40px); line-height: 1.18; }
+.tech-hero .by { color: var(--muted); font-size: 16px; }
+.tech-section { padding-block: 30px; display: grid; gap: 18px; scroll-margin-top: calc(var(--nav-h) + 16px); }
+.tech-section:first-of-type { padding-top: 0; }
+.tech-section h2 { font-size: clamp(22px, 2.6vw, 28px); padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.tech-section h3 { font-size: 19px; margin-top: 8px; }
+.prose { display: grid; gap: 14px; max-width: 76ch; color: #4f555a; }
+.prose b { color: var(--ink); font-weight: 700; }
 .katex { font-size: 1.04em; }
-.eq { overflow-x: auto; padding: 4px 0; color: var(--text); }
-.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); }
-table { width: 100%; border-collapse: collapse; font: 400 14px/1.4 var(--body); font-variant-numeric: tabular-nums; }
+.eq { overflow-x: auto; padding: 4px 0; color: var(--ink); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+table { width: 100%; border-collapse: collapse; font: 400 14px/1.4 var(--ui); font-variant-numeric: tabular-nums; color: #3d4349; }
 th, td { padding: 9px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
 th:first-child, td:first-child { text-align: left; }
-thead th { font: 500 12px/1.3 var(--mono); color: var(--muted); letter-spacing: 0.02em; background: var(--surface); }
-thead tr:first-child th { color: var(--text); }
+thead th { font: 600 12px/1.3 var(--ui); color: var(--muted); letter-spacing: 0.02em; background: var(--surface); }
+thead tr:first-child th { color: var(--ink); }
 tbody tr:last-child td { border-bottom: 0; }
-td.best { background: var(--best); color: #fff; font-weight: 600; }
+td.best { background: var(--best); color: #0c5a4b; font-weight: 700; }
 tr.ours td { background: var(--ours); }
 tr.ours td.best { background: linear-gradient(var(--best), var(--best)), var(--ours); }
-tr.ours td:first-child { color: #ffc27a; font-weight: 600; }
-tr.group td { font: 500 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); text-align: left; padding-top: 14px; background: transparent; }
+tr.ours td:first-child { color: #b4520a; font-weight: 700; }
+tr.group td { font: 600 11px/1 var(--ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); text-align: left; padding-top: 14px; background: transparent; }
 td.na { color: var(--faint); }
-.cap { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 90ch; }
-.cap b { color: var(--text); font-weight: 600; }
+.cap { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 90ch; }
+.cap b { color: var(--ink); font-weight: 700; }
 .two { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; }
 @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
 
-.site-footer { border-top: 1px solid var(--line-soft); padding: 28px 16px 40px; color: var(--faint); font-size: 13px; text-align: center; }
+.site-footer { border-top: 1px solid var(--line-soft); padding: 26px 16px 40px; color: var(--faint); font-size: 14px; text-align: center; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+.promo-stage { --wrap: min(1040px, 100% - 32px); }
+.console-page { --wrap: min(1180px, 100% - 32px); }
+.step-cap { text-align: center; color: var(--ink); font-size: 17px; margin-top: 12px; min-height: 1.7em; }
 </style>
 <script type="importmap">
 {"imports": {"three": "./assets/vendor/three.module.js", "three/addons/": "./assets/vendor/addons/", "spark": "./assets/vendor/spark.module.js"}}
@@ -225,7 +244,7 @@ td.na { color: var(--faint); }
 </head>
 <body>
 <header class="site-nav" id="siteNav">
-  <a class="wordmark" href="#home">UniGaussianGPT</a>
+  <a class="wordmark" href="#home"><span class="key">Uni</span>GaussianGPT</a>
   <nav class="site-nav-links" aria-label="Pages">
     <a href="#home" data-view="home">Home</a>
     <a href="#promo-video" data-view="promo-video">Promo Video</a>
@@ -243,101 +262,100 @@ td.na { color: var(--faint); }
 
 <!-- ================================================================= HOME -->
 <main id="home" class="page-view">
-  <header class="masthead">
-    <div class="masthead-media" aria-hidden="true">
-      <video autoplay muted loop playsinline preload="auto" poster="assets/video/hero_walk.jpg">
-        <source src="assets/video/hero_walk.mp4" type="video/mp4">
-      </video>
-      <div class="masthead-shade"></div>
-    </div>
-    <div class="masthead-content">
-      <h1><span class="hero-title">UniGaussianGPT</span></h1>
-      <p class="hero-sub">Composable Autoregressive Semantic 3D Gaussians Modeling</p>
+  <header class="band">
+    <div class="band-inner">
+      <h1 class="title"><span class="key">Uni</span>GaussianGPT: Composable Autoregressive Semantic 3D Gaussians Modeling</h1>
+      <hr>
       <div class="authors" aria-label="Authors">
-        <span><a href="https://aresxie.top/" target="_blank" rel="noopener">Yuchen Xie</a><sup>1,*</sup></span>
-        <span><a href="https://lhmd.top/" target="_blank" rel="noopener">Weijie Wang</a><sup>2,*</sup></span>
+        <span><a href="https://aresxie.top/" target="_blank" rel="noopener">Yuchen Xie</a><sup>1*</sup></span>
+        <span><a href="https://lhmd.top/" target="_blank" rel="noopener">Weijie Wang</a><sup>2*</sup></span>
         <span><a href="https://gaozihui.github.io/" target="_blank" rel="noopener">Zihui Gao</a><sup>1</sup></span>
         <span><a href="https://qihangcao.github.io/" target="_blank" rel="noopener">Qihang Cao</a><sup>1</sup></span>
         <span><a href="https://scholar.google.com/citations?user=U_FlSxYAAAAJ&amp;hl=en" target="_blank" rel="noopener">Jinghao Guo</a><sup>1</sup></span>
         <span><a href="https://donydchen.github.io/" target="_blank" rel="noopener">Donny Y. Chen</a><sup>3</sup></span>
         <span><a href="https://jwbian.net/" target="_blank" rel="noopener">Jia-Wang Bian</a><sup>1</sup></span>
       </div>
-      <p class="affiliations"><span><img class="affil-mark" src="assets/brand/ntu.png" alt=""><sup>1</sup>Nanyang Technological University</span><span><img class="affil-mark" src="assets/brand/zju.png" alt=""><sup>2</sup>Zhejiang University</span><span><img class="affil-mark" src="assets/brand/monash.png" alt=""><sup>3</sup>Monash University</span></p>
-      <p class="author-notes"><sup>*</sup>Equal contribution</p>
+      <p class="affiliations"><span><sup>1</sup>Nanyang Technological University</span><span><sup>2</sup>Zhejiang University</span><span><sup>3</sup>Monash University</span></p>
+      <p class="author-notes">* Equal contribution</p>
       <div class="resource-links">
-        <a class="btn primary" href="assets/paper/UniGaussianGPT.pdf" target="_blank" rel="noopener">
+        <a class="btn" href="assets/paper/UniGaussianGPT.pdf" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>Paper</a>
         <a class="btn" href="https://github.com/AresCheah/UniGaussianGPT" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 8-4 4 4 4"/><path d="m16 8 4 4-4 4"/><path d="m13.5 5-3 14"/></svg>Code</a>
         <a class="btn" href="https://huggingface.co/Ares788/UniGaussianGPT" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>Model</a>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>Models</a>
         <a class="btn" href="#promo-video">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.7v14.6a1 1 0 0 0 1.52.85l11.8-7.3a1 1 0 0 0 0-1.7L8.52 3.85A1 1 0 0 0 7 4.7z"/></svg>Promo Video</a>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.7v14.6a1 1 0 0 0 1.52.85l11.8-7.3a1 1 0 0 0 0-1.7L8.52 3.85A1 1 0 0 0 7 4.7z"/></svg>Video</a>
         <a class="btn" href="#console">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 7.5l9 4.5 9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg>Interactive Console</a>
-        <a class="btn" href="#technical-details">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>Technical Details</a>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 7.5l9 4.5 9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg>Interactive Demo</a>
       </div>
     </div>
   </header>
 
-  <section class="section">
+  <section class="hl" aria-label="Results">
     <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">One model, two jobs</span>
-        <h2>Generate a 3D Gaussian scene and know what every Gaussian is</h2>
-        <p>UniGaussianGPT writes a scene token by token. The transformer state that predicts the next token also predicts the semantic class of the region it has just written, so the generated Gaussians come out labeled, and each piece of furniture can be selected, moved, copied or removed as a whole.</p>
+      <div class="hl-frame">
+        <video id="hl" autoplay muted loop playsinline preload="auto" poster="assets/video/highlights.jpg" aria-label="UniGaussianGPT generating a house token by token, labeling every Gaussian, selecting objects, completing a partial house, and removing furniture">
+          <source src="assets/video/highlights.mp4" type="video/mp4">
+        </video>
       </div>
-      <figure class="figure">
-        <div class="frame"><img src="assets/paper/fig/fig_teaser.webp" alt="Teaser figure from the paper: a generated scene with its semantic labels, and rendered views with the masks of selected objects." loading="lazy"></div>
-        <figcaption><b>Figure 1.</b> UniGaussianGPT generates 3D Gaussian scenes together with their semantic categories. Left: every decoded Gaussian carries a predicted category. Right: RGB renderings of scenes with the predicted semantic masks.</figcaption>
-      </figure>
+      <div class="steps" role="group" aria-label="Jump to">
+        <button type="button" data-t="0" data-cap="Generate a house, token by token" style="--dot: var(--c-cabinet)"><i></i>Generate</button>
+        <button type="button" data-t="3.05" data-cap="One click labels every Gaussian with its class" style="--dot: var(--c-sofa)"><i></i>3D semantics</button>
+        <button type="button" data-t="5.6" data-cap="Click an object: its Gaussians are selected in 3D" style="--dot: var(--c-chair)"><i></i>Select</button>
+        <button type="button" data-t="12.25" data-cap="Given part of a house, the model writes the rest" style="--dot: var(--c-table)"><i></i>Complete</button>
+        <button type="button" data-t="17.0" data-cap="Every object comes out whole, its underside included" style="--dot: var(--c-decor)"><i></i>Whole objects</button>
+        <button type="button" data-t="22.25" data-cap="Take the furniture out: the floor underneath is complete" style="--dot: var(--c-stool)"><i></i>Edit</button>
+      </div>
+      <p class="step-cap" data-step-cap aria-live="polite"></p>
     </div>
   </section>
 
   <section class="section">
     <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">Results on held-out 3D-FRONT scenes</span>
-        <h2>Better labels, better layouts, and hidden surfaces kept</h2>
-      </div>
+      <h2>TL;DR</h2>
+      <p class="lead"><b>UniGaussianGPT</b> writes a 3D Gaussian scene token by token, and the transformer state that predicts the next token also predicts the semantic class of the region it has just written. The generated Gaussians come out labeled, and each piece of furniture is a separate, complete piece that can be selected, moved, copied or removed as a whole.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <h2>Highlights</h2>
       <div class="stats">
-        <div class="stat"><span class="k">3D semantic mIoU</span><span class="v">0.578</span><p>On 480 held-out 4&nbsp;m chunks. The strongest baseline, SceneSplat, reaches <b>0.385</b>; all baselines are fine-tuned on our data.</p></div>
-        <div class="stat"><span class="k">Layout FID, unconditional</span><span class="v">68.36</span><p>Top-down depth of generated scenes. WorldGrow <b>97.08</b>, GaussianGPT <b>104.03</b>; lower is better.</p></div>
-        <div class="stat"><span class="k">Hidden Gaussians retained</span><span class="v">92.96%</span><p>Occluded surfaces that survive tokenization with opacity above 0.15, against <b>83.32%</b> for the GaussianGPT tokenizer.</p></div>
+        <div class="stat" style="--dot: var(--c-sofa)"><span class="k">3D semantic mIoU</span><span class="v">0.578</span><p>On 480 held-out 4&nbsp;m chunks of 3D-FRONT. The strongest baseline, SceneSplat, reaches <b>0.385</b>; all baselines are fine-tuned on our data.</p></div>
+        <div class="stat" style="--dot: var(--c-cabinet)"><span class="k">Layout FID, unconditional</span><span class="v">68.36</span><p>Top-down depth of generated scenes. WorldGrow <b>97.08</b>, GaussianGPT <b>104.03</b>; lower is better.</p></div>
+        <div class="stat" style="--dot: var(--c-table)"><span class="k">Hidden Gaussians retained</span><span class="v">92.96%</span><p>Occluded surfaces that survive tokenization with opacity above 0.15, against <b>83.32%</b> for the GaussianGPT tokenizer.</p></div>
       </div>
     </div>
   </section>
 
   <section class="section">
-    <div class="wrap split">
-      <a class="console-teaser" href="#console" aria-label="Open the interactive console">
-        <img src="assets/console/poster.jpg" alt="The living room from the promo video in the interactive console, seen from inside, as 3D Gaussians." loading="lazy">
-        <span class="chip" style="--dot:#4f46e5"><i></i>Open the console</span>
-      </a>
-      <div>
-        <span class="eyebrow">Interactive console</span>
-        <h2 style="font-size: clamp(24px, 3vw, 34px); margin-top: 12px;">Walk into a generated house and edit it</h2>
-        <ul class="ops">
-          <li><b>Walk</b>Move through the house with W A S D, look around by dragging.</li>
-          <li><b>Semantics</b>Show the class the model predicted for every Gaussian.</li>
-          <li><b>Select</b>Click the sofa, a chair or a table; it is one labeled, complete piece.</li>
-          <li><b>Move, turn</b>Drag it across the floor, turn it in 15&deg; steps.</li>
-          <li><b>Copy, remove</b>Duplicate it, or take it out: the floor under it is whole.</li>
-        </ul>
-        <a class="btn primary" href="#console">Open the console</a>
+    <div class="wrap">
+      <h2>Interactive Demo</h2>
+      <div class="split">
+        <a class="console-teaser" href="#console" aria-label="Open the interactive demo">
+          <img src="assets/console/poster.jpg" alt="The living room from the promo video in the interactive demo, as 3D Gaussians." loading="lazy">
+          <span class="chip" style="--dot: var(--c-sofa)"><i></i>Open the demo</span>
+        </a>
+        <div>
+          <p>The living and dining room from the promo video, as 3D Gaussians in your browser.</p>
+          <ul class="ops">
+            <li><b>Walk</b>Move through the house with W A S D, look around by dragging.</li>
+            <li><b>Semantics</b>Show the class the model predicted for every Gaussian.</li>
+            <li><b>Select</b>Click the sofa, a chair or a table; it is one labeled, complete piece.</li>
+            <li><b>Edit</b>Move, turn, copy or remove it: the floor under it is complete.</li>
+          </ul>
+          <a class="btn" href="#console">Open the demo</a>
+        </div>
       </div>
     </div>
   </section>
 
   <section class="section" id="citation">
     <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">Citation</span>
-        <h2>BibTeX</h2>
-      </div>
+      <h2>BibTeX</h2>
       <div class="bib">
-        <button class="btn copy" type="button" data-copy="#bibtex">Copy</button>
+        <button class="btn light copy" type="button" data-copy="#bibtex">Copy</button>
 <pre id="bibtex">@article{xie2026unigaussiangpt,
   title   = {UniGaussianGPT: Composable Autoregressive Semantic 3D Gaussians Modeling},
   author  = {Xie, Yuchen and Wang, Weijie and Gao, Zihui and Cao, Qihang and
@@ -350,12 +368,13 @@ td.na { color: var(--faint); }
   </section>
 </main>
 
+
 <!-- ================================================================= PROMO -->
 <main id="promo-video" class="page-view" hidden>
   <div class="wrap promo-stage">
-    <div class="section-head" style="margin-bottom: 0;">
+    <div class="page-head">
       <span class="eyebrow">Promo video &middot; 1:14</span>
-      <h1 style="font-size: clamp(26px, 3.4vw, 38px);">UniGaussianGPT in seventy seconds</h1>
+      <h1>UniGaussianGPT in seventy seconds</h1>
       <p>Part 1 walks through a generated house and segments it with one click. Part 2 completes a partial house, then lifts out the dining set: each piece is whole, and the floor under it is complete.</p>
     </div>
     <video id="promo" controls playsinline preload="metadata" poster="assets/video/promo_poster.jpg">
@@ -369,11 +388,6 @@ td.na { color: var(--faint); }
       <button type="button" data-t="50.8"><span>0:50</span>Completion</button>
       <button type="button" data-t="56.9"><span>0:56</span>Complete objects</button>
       <button type="button" data-t="63.3"><span>1:03</span>Clear the room</button>
-    </div>
-    <div class="affil-logos" aria-label="Affiliations">
-      <figure><img src="assets/brand/ntu.png" alt="Nanyang Technological University emblem"><figcaption>Nanyang Technological University</figcaption></figure>
-      <figure><img src="assets/brand/zju.png" alt="Zhejiang University emblem"><figcaption>Zhejiang University</figcaption></figure>
-      <figure><img src="assets/brand/monash.png" alt="Monash University emblem"><figcaption>Monash University</figcaption></figure>
     </div>
   </div>
 </main>
@@ -448,6 +462,10 @@ td.na { color: var(--faint); }
             <p>Recent advances in 3D generative modeling have enabled the synthesis of detailed scenes with coherent geometry and appearance, mostly through diffusion models that refine an entire scene holistically. Autoregressive formulations offer a complementary paradigm that constructs Gaussian scenes step by step, bringing a compositional inductive bias under which generation and completion follow from the same next-token prediction. However, these advances largely focus on producing renderable scenes, while recognizing their contents remains a separate task. Semantic information links geometry to the objects and regions it represents, providing a foundation for scene understanding and downstream applications such as robotics and AR/VR.</p>
             <p>We therefore present <b>UniGaussianGPT</b>, an autoregressive framework that unifies 3D Gaussian scene generation and semantic understanding by learning to predict scene contents and their semantics from shared contextual representations. To support this learning, we build labeled training scenes by composing Gaussian assets converted from complete furniture meshes with separately fitted empty rooms, and supervise Gaussian attributes directly so that occluded surfaces survive tokenization. Generated scenes are thus composable, consisting of semantically labeled and individually complete components. Extensive experiments on composed 3D-FRONT scenes show that UniGaussianGPT achieves state-of-the-art performance in both semantic understanding and scene generation and completion, while better retaining occluded content through tokenization.</p>
           </div>
+          <figure class="figure">
+            <div class="frame"><img src="assets/paper/fig/fig_teaser.webp" alt="Teaser figure from the paper: a generated scene with its semantic labels, and rendered views with the masks of selected objects." loading="lazy"></div>
+            <figcaption><b>Figure 1.</b> UniGaussianGPT generates 3D Gaussian scenes together with their semantic categories. Left: every decoded Gaussian carries a predicted category. Right: RGB renderings of scenes with the predicted semantic masks.</figcaption>
+          </figure>
         </section>
 
         <section class="tech-section" id="method">
