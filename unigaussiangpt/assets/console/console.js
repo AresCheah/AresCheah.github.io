@@ -10,6 +10,9 @@ import { SparkRenderer, SplatMesh, PackedSplats, utils } from "spark";
 
 const STRIDE = 18;
 const CEILING = "ceiling";
+// the walls' top 0.2 m is a white band of ceiling-coloured splats (the ceiling sits at 2.42-2.64 m,
+// the walls' own colour stops at ~2.45 m): seen from above it drew as a frayed white rim
+const WALL_TOP = 2.48;
 
 // byte j of splat i: at i * STRIDE + j (interleaved) or j * n + i (byte-planar, compresses better)
 function decode(meta, bytes) {
@@ -37,9 +40,11 @@ function decode(meta, bytes) {
   const groups = [];
   let off = 0;
   meta.groups.forEach((g, gi) => {
-    // the house's splats without the ceiling (its class); a piece keeps all of its own
+    // the house's splats without the ceiling (its class) and the walls' white top; a piece keeps all
+    // of its own
+    const top = Math.round(((WALL_TOP - lo[2]) / span[2]) * 65535);
     const kept = [];
-    for (let i = 0; i < g.n; i++) if (g.cls || u8(off + i, 17) !== ceil) kept.push(off + i);
+    for (let i = 0; i < g.n; i++) if (g.cls || (u8(off + i, 17) !== ceil && u16(off + i, 4) <= top)) kept.push(off + i);
     // the house's tile split by wall (-1: the floor and anything away from the walls)
     const parts = new Map();
     for (const b of kept) {
@@ -182,22 +187,40 @@ export async function initConsole(root, base) {
   // ---- the orbit: a target over the middle of the house, the camera on a sphere around it
   const lo = meta.lo, hi = meta.hi;
   const mid = new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, fz + 0.6);
-  const size = [hi[0] - lo[0], hi[1] - lo[1]];
   const v0 = meta.orbit || { az: -62, el: 52 };
+  // the start azimuth: meta.orbit.az on a wide screen (from the front, the house across the frame), its
+  // portrait_az on a phone held upright (more from the end, so the long house runs up the screen)
+  const startAz = () => THREE.MathUtils.degToRad(camera.aspect < 1 && v0.portrait_az != null ? v0.portrait_az : v0.az);
   const view = { az: 0, el: 0, dist: 10, target: mid.clone() };
   const EL = [THREE.MathUtils.degToRad(28), THREE.MathUtils.degToRad(84)];
   let fit = 10;                // the distance at which the whole house fills the view
   function fitDist() {
-    // the house's footprint, seen at the start elevation, fills ~85% of the view either way
-    const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
-    const r = Math.hypot(size[0], size[1]) / 2;
-    return 1.08 * Math.max(r / Math.tan(hf / 2), (r * 0.62) / Math.tan(vf / 2));
+    // the house's box (floor to the wall tops) seen from the start view fills the frame, ~6% margin:
+    // the nearest distance at which its eight corners all project inside
+    const az = startAz(), el = THREE.MathUtils.degToRad(v0.el);
+    const dir = new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el));
+    const cam = camera.clone();
+    cam.updateProjectionMatrix();
+    const p = new THREE.Vector3();
+    const inside = (d) => {
+      cam.position.copy(mid).addScaledVector(dir, d);
+      cam.lookAt(mid);
+      cam.updateMatrixWorld();
+      for (let i = 0; i < 8; i++) {
+        p.set(i & 1 ? hi[0] : lo[0], i & 2 ? hi[1] : lo[1], i & 4 ? WALL_TOP : fz).project(cam);
+        if (Math.abs(p.x) > 0.94 || Math.abs(p.y) > 0.9 || p.z > 1) return false;
+      }
+      return true;
+    };
+    let a = 1, b = 80;
+    for (let i = 0; i < 24; i++) { const m = (a + b) / 2; if (inside(m)) b = m; else a = m; }
+    return b;
   }
   function goStart() {
-    view.az = THREE.MathUtils.degToRad(v0.az);
+    view.az = startAz();
     view.el = THREE.MathUtils.degToRad(v0.el);
     view.target.copy(mid);
-    view.dist = fit;
+    view.dist = fit * (v0.k || 1);
     applyCamera();
   }
   const tmpV = new THREE.Vector3();
@@ -350,8 +373,10 @@ export async function initConsole(root, base) {
     return boxes.length ? live.find((o) => o.proxy === boxes[0].object) : null;
   }
 
-  // ---- slow turn until the first touch
-  let spin = true;
+  // ---- until the first touch the house sways a little about the start view (a whole turn passed through
+  // the end-on views, where the long house is a sliver and the walls fade in and out)
+  let spin = true, swayT = 0;
+  const SWAY = THREE.MathUtils.degToRad(9);
   function stopSpin() { spin = false; }
 
   // ---- pointers: drag the active piece over the floor; drag anywhere else to turn the house
@@ -557,7 +582,7 @@ export async function initConsole(root, base) {
   }
   function update(dt) {
     let moved = false;
-    if (spin) { view.az += 0.12 * dt; moved = true; }
+    if (spin) { swayT += dt; view.az = startAz() + SWAY * Math.sin(swayT * 0.4); moved = true; }
     const turn = (held.has("ArrowLeft") ? 1 : 0) - (held.has("ArrowRight") ? 1 : 0);
     const tilt = (held.has("ArrowUp") ? 1 : 0) - (held.has("ArrowDown") ? 1 : 0);
     const zoom = (held.has("Minus") || held.has("NumpadSubtract") ? 1 : 0) - (held.has("Equal") || held.has("NumpadAdd") ? 1 : 0);
