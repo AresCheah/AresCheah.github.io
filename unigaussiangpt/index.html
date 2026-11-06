@@ -134,6 +134,7 @@ main.page-view { padding-top: var(--nav-h); min-height: 100vh; }
 @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
 .console-teaser { position: relative; display: block; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 12px 30px rgba(26, 52, 48, 0.10); }
 .console-teaser img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; transition: transform .6s var(--ease); }
+.console-teaser:hover { text-decoration: none; }
 .console-teaser:hover img { transform: scale(1.02); }
 .console-teaser .chip { position: absolute; left: 14px; bottom: 14px; }
 .ops { list-style: none; padding: 0; margin: 14px 0 22px; display: grid; gap: 8px; }

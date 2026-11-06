@@ -179,13 +179,6 @@ export async function initConsole(root, base) {
     o.home = { parent: o.mesh.parent, pos: o.mesh.position.clone(), rot: o.mesh.rotation.z, on: o.on, under: [...o.under] };
   });
 
-  // floor ring under the active piece, in its class colour
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.94, 1.0, 96),
-    new THREE.MeshBasicMaterial({ color: 0x1f2428, transparent: true, opacity: 0.85, depthWrite: false }));
-  ring.visible = false;
-  ring.renderOrder = 10;
-  scene.add(ring);
-
   // ---- the orbit: a target over the middle of the house, the camera on a sphere around it
   const lo = meta.lo, hi = meta.hi;
   const mid = new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, fz + 0.6);
@@ -250,16 +243,11 @@ export async function initConsole(root, base) {
   function setActive(o) {
     active = o;
     actions.forEach((b) => { if (b.dataset.act !== "reset") b.disabled = !o; });
-    ring.visible = !!o;
     if (o) {
-      const s = o.g.meta.size;
-      ring.scale.setScalar(0.42 * Math.hypot(s[0], s[1]) + 0.05);
-      ring.material.color.setRGB(...(meta.palette[o.g.meta.cls] || [30, 36, 40]).map((v) => v / 255));
       say(`${nice(o.g.meta.cls)[0].toUpperCase() + nice(o.g.meta.cls).slice(1)}: a separate, complete piece. Drag it to move it, Q / E turn it, C copies it, X removes it.`);
     } else {
       say("Drag to turn the house, scroll to zoom. Click a piece of furniture or its label to color it by its class.");
     }
-    placeRing();
     paint();
   }
   // a click on a piece colours it by its class and makes it the one the buttons act on; a second
@@ -268,11 +256,6 @@ export async function initConsole(root, base) {
     if (o.sem && (o === active || !active)) { o.sem = false; setActive(active === o ? null : active); return; }
     o.sem = true;
     setActive(o);
-  }
-  function placeRing() {
-    if (!active) return;
-    active.mesh.getWorldPosition(tmpV);
-    ring.position.set(tmpV.x, tmpV.y, active.g.meta.foot[2] + (tmpV.z - fz) + 0.015);
   }
 
   // ---- labels: every piece's class over it, in the class colour; where labels would overlap the
@@ -424,7 +407,6 @@ export async function initConsole(root, base) {
       if (ray.ray.intersectPlane(drag.plane, p)) {
         drag.o.mesh.position.set(drag.start.x + p.x - drag.from.x, drag.start.y + p.y - drag.from.y, drag.start.z);
         clampToPlan(drag.o, drag.o.mesh.position);
-        placeRing();
       }
     } else if (orbit) {
       const dx = e.clientX - orbit.x, dy = e.clientY - orbit.y;
@@ -439,7 +421,6 @@ export async function initConsole(root, base) {
     if (drag) {
       settle(drag.o);
       drag = null;
-      placeRing();
     } else if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) {
       pointer(e);
       const o = pick();
