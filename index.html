@@ -123,6 +123,8 @@
                 <td style="padding:0px 2.5%;width:100%;vertical-align:middle">
                   <heading>News</heading>
                   <ul id="news-list" class="news-list" data-visible-count="6">
+                    <li>[2026/11] Our paper <a href="https://allocflow.github.io/" target="_blank">AllocFlow</a> on
+                      end-to-end portfolio trading with flow matching is released.</li>
                     <li>[2026/11] 💼 I joined <a href="https://www.worldquant.com/" target="_blank">WorldQuant</a> as a
                       Research Consultant.</li>
                     <li>[2026/10] 🥇 Reached <span class="paper-highlight">Gold Level</span> in the <a href="https://platform.worldquantbrain.com/" target="_blank">WorldQuant Challenge</a>!</li>
@@ -156,6 +158,40 @@
                   <p>
                     <span>&#42;</span> <em>Equal contribution</em> &nbsp;/&nbsp; <span>&#8224;</span>
                     <em>Corresponding author</em>
+                  </p>
+                </td>
+              </tr>
+
+              <tr class="paper-row" bgcolor="#ffffdc">
+                <td style="padding:20px;width:30%;vertical-align:middle">
+                  <img class="paper-img" src="images/allocflow.jpg" alt="AllocFlow overview">
+                </td>
+                <td style="padding:20px;width:70%;vertical-align:middle">
+                  <a href="https://allocflow.github.io/" target="_blank">
+                    <papertitle>AllocFlow: End-to-End Portfolio Trading Action Generation from Raw Market Data
+                    </papertitle>
+                  </a>
+                  <br>
+                  <a class="a2" href="https://scholar.google.com/citations?user=vZn0gL8AAAAJ&hl=en" target="_blank">Annan Wang</a><span>&#42;</span>,
+                  <a class="a2" href="./"><strong>Yuchen Xie</strong></a><span>&#42;</span>,
+                  <a class="a2" href="https://www.linkedin.com/in/yu-cen-2999691a1/" target="_blank">Yu Cen</a>,
+                  <a class="a2" href="https://cliangyu.com/" target="_blank">Leon Liangyu Chen</a>,
+                  <a class="a2" href="https://qianyu-zhu.github.io/" target="_blank">Qianyu Julie Zhu</a>,
+                  <a class="a2" href="https://lixin.ai/" target="_blank">Xin Li</a>,
+                  <a class="a2" href="https://wtybest.github.io/" target="_blank">Tianyi Wei</a>,
+                  <a class="a2" href="https://personal.ntu.edu.sg/wslin/Home.html" target="_blank">Weisi Lin</a><span>&#8224;</span>
+                  <br>
+                  <a href="https://arxiv.org/abs/2611.19937" target="_blank">Paper</a>
+                  /
+                  <a href="https://allocflow.github.io/" target="_blank">Project</a>
+                  /
+                  <a href="https://github.com/allocflow/AllocFlow" target="_blank">Code</a>
+                  <p></p>
+                  <p>
+                    AllocFlow reads the raw price history of every asset and generates the whole long/short portfolio
+                    at once with a cross-asset flow Transformer, trained by imitation and then group-relative RL. After
+                    fees it reaches a Calmar ratio of 4.04 on 14 unseen months of crypto futures, and 4.90 on six more
+                    months without retraining.
                   </p>
                 </td>
               </tr>
